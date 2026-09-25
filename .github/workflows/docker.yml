@@ -26,6 +26,6 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/jstplink/vaultpass:latest
+          tags: ghcr.io/jstplink/vaultpass-app:latest
           cache-from: type=gha,scope=vaultpass
           cache-to: type=gha,mode=max,scope=vaultpass

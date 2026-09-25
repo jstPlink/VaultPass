@@ -28,7 +28,7 @@ La registrazione di nuovi utenti è aperta a chiunque possa raggiungere l'app (n
 
 ## Avvio con Docker (consigliato)
 
-Basta il solo file `docker-compose.yml`: l'immagine `ghcr.io/jstplink/vaultpass` (x86_64 e arm64) viene costruita automaticamente da GitHub Actions a ogni push su `main`. Il file `.env` è facoltativo (vedi `.env.example`). Se `JWT_SECRET` non è impostato, viene generato automaticamente e salvato in `data/jwt_secret`.
+Basta il solo file `docker-compose.yml`: l'immagine `ghcr.io/jstplink/vaultpass-app` (x86_64 e arm64) viene costruita automaticamente da GitHub Actions a ogni push su `main`. Il file `.env` è facoltativo (vedi `.env.example`). Se `JWT_SECRET` non è impostato, viene generato automaticamente e salvato in `data/jwt_secret`.
 
 ```bash
 docker compose up -d

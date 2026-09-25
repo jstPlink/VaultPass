@@ -4,7 +4,7 @@
 # il browser attiva la cifratura solo su HTTPS.
 services:
   vaultpass:
-    image: ghcr.io/jstplink/vaultpass:latest
+    image: ghcr.io/jstplink/vaultpass-app:latest
     container_name: vaultpass
     restart: unless-stopped
     init: true
