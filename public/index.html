@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VaultPass</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#1c2333">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div id="view-setup" class="view hidden">
+  <div class="card auth-card">
+    <h1>Crea un nuovo utente</h1>
+    <p class="muted">La password principale protegge e cifra tutti i tuoi dati. <strong>Non può essere recuperata se la dimentichi</strong>: conservala in un posto sicuro.</p>
+    <form id="form-setup">
+      <label>Nome utente</label>
+      <input type="text" id="setup-username" required minlength="3" autocomplete="username">
+      <label>Password principale</label>
+      <input type="password" id="setup-password" required minlength="8" autocomplete="new-password">
+      <label>Conferma password</label>
+      <input type="password" id="setup-password-confirm" required minlength="8" autocomplete="new-password">
+      <p id="setup-error" class="error hidden"></p>
+      <button type="submit" class="btn-primary">Crea e continua</button>
+    </form>
+    <p class="muted switch-link">Hai già un utente? <a href="#" id="link-to-login">Accedi</a></p>
+  </div>
+</div>
+
+<div id="view-login" class="view hidden">
+  <div class="card auth-card">
+    <h1>VaultPass</h1>
+    <p class="muted">Inserisci nome utente e password principale per sbloccare i tuoi dati.</p>
+    <form id="form-login">
+      <label>Nome utente</label>
+      <input type="text" id="login-username" required autocomplete="username">
+      <label>Password principale</label>
+      <input type="password" id="login-password" required autocomplete="current-password">
+      <p id="login-error" class="error hidden"></p>
+      <button type="submit" class="btn-primary">Sblocca</button>
+    </form>
+    <p class="muted switch-link">Non hai un utente? <a href="#" id="link-to-setup">Crea un nuovo utente</a></p>
+  </div>
+</div>
+
+<div id="view-quickunlock" class="view hidden">
+  <div class="card auth-card">
+    <h1>Bentornato</h1>
+    <p class="muted" id="quickunlock-username"></p>
+    <form id="form-quickunlock">
+      <label>PIN</label>
+      <input type="password" id="quickunlock-pin" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" required autocomplete="off">
+      <p id="quickunlock-error" class="error hidden"></p>
+      <button type="submit" class="btn-primary">Sblocca</button>
+    </form>
+    <button type="button" id="btn-quickunlock-biometric" class="btn-secondary btn-block hidden">Usa impronta / Face ID</button>
+    <p class="muted switch-link">Non funziona? <a href="#" id="link-to-full-login">Usa la password principale</a></p>
+  </div>
+</div>
+
+<div id="view-main" class="view hidden">
+  <header class="topbar">
+    <h1>VaultPass</h1>
+  </header>
+
+  <nav class="top-nav">
+    <button class="nav-btn active" data-tab="tab-vault">Account</button>
+    <button class="nav-btn" data-tab="tab-search">Cerca</button>
+    <button class="nav-btn" data-tab="tab-options">Opzioni</button>
+  </nav>
+
+  <main>
+    <section id="tab-vault" class="tab">
+      <div id="vault-list" class="item-list"></div>
+      <p id="vault-empty" class="muted hidden">Nessun account salvato. Aggiungine uno con il pulsante "+".</p>
+      <button id="btn-new-item" class="fab" title="Nuovo account">+</button>
+    </section>
+
+    <section id="tab-search" class="tab hidden">
+      <h2>Cerca</h2>
+      <input type="search" id="search-input" placeholder="Cerca per nome sito, email o nome utente...">
+      <div id="search-results" class="item-list"></div>
+    </section>
+
+    <section id="tab-options" class="tab hidden">
+      <h2>Opzioni</h2>
+
+      <div class="card">
+        <h3>Email di accesso salvate</h3>
+        <p class="muted">Gestisci l'elenco delle email che usi per accedere ai siti, per richiamarle rapidamente quando aggiungi un account.</p>
+        <div id="emails-list" class="chip-list"></div>
+        <form id="form-add-email" class="inline-form">
+          <input type="color" id="new-email-color" value="#3b5bfd" title="Colore">
+          <input type="text" id="new-email-label" placeholder="Nome (es. Personale)" required>
+          <input type="email" id="new-email-input" placeholder="nuova@email.it" required>
+          <button type="submit" class="btn-secondary">Aggiungi</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Sblocco rapido</h3>
+        <p class="muted">Sblocca l'app con un PIN (e, se disponibile, l'impronta digitale o Face ID) invece di digitare la password principale ad ogni apertura su questo dispositivo.</p>
+        <p class="muted" id="quickunlock-status"></p>
+        <button type="button" id="btn-quickunlock-toggle" class="btn-secondary"></button>
+      </div>
+
+      <div class="card">
+        <h3>Account collegati con Google</h3>
+        <p class="muted">Funzione non ancora disponibile.</p>
+      </div>
+
+      <div class="card">
+        <h3>Sicurezza</h3>
+        <p class="muted">I dati sono cifrati sul tuo dispositivo prima di essere inviati al server (cifratura "zero-knowledge"). Nessuno, nemmeno chi gestisce il server, può leggerli senza la tua password principale.</p>
+      </div>
+
+      <button id="btn-logout" class="btn-danger btn-block">Esci</button>
+    </section>
+  </main>
+</div>
+
+<div id="item-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2 id="item-modal-title">Nuovo account</h2>
+    <form id="form-item">
+      <input type="hidden" id="item-id">
+      <label>Nome del sito</label>
+      <input type="text" id="item-name" required placeholder="Es. Amazon">
+      <label>URL</label>
+      <input type="url" id="item-url" placeholder="https://www.esempio.it">
+      <label>Email di accesso</label>
+      <input type="email" id="item-email" list="email-suggestions" placeholder="email@esempio.it">
+      <datalist id="email-suggestions"></datalist>
+      <label>Nome utente</label>
+      <input type="text" id="item-username">
+      <label>Password</label>
+      <div class="password-field">
+        <input type="password" id="item-password">
+        <button type="button" id="toggle-item-password" class="btn-icon">👁</button>
+      </div>
+      <label>Note</label>
+      <textarea id="item-notes" rows="3"></textarea>
+      <div class="modal-actions">
+        <button type="button" id="btn-delete-item" class="btn-danger hidden">Elimina</button>
+        <div class="modal-actions-right">
+          <button type="button" id="btn-cancel-item" class="btn-ghost">Annulla</button>
+          <button type="submit" class="btn-primary">Salva</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="view-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2 id="view-modal-title"></h2>
+    <div id="view-modal-body" class="view-details"></div>
+    <div class="modal-actions">
+      <div></div>
+      <div class="modal-actions-right">
+        <button type="button" id="btn-close-view" class="btn-ghost">Chiudi</button>
+        <button type="button" id="btn-edit-from-view" class="btn-primary">Modifica</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="quickunlock-setup-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2>Attiva sblocco rapido</h2>
+    <p class="muted">Scegli un PIN di almeno 4 cifre per sbloccare l'app su questo dispositivo senza digitare la password principale ogni volta. Se disponibile, potrai usare anche l'impronta digitale o Face ID.</p>
+    <form id="form-quickunlock-setup">
+      <label>Nuovo PIN</label>
+      <input type="password" id="quickunlock-setup-pin" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" required autocomplete="off">
+      <label>Conferma PIN</label>
+      <input type="password" id="quickunlock-setup-pin-confirm" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" required autocomplete="off">
+      <p id="quickunlock-setup-error" class="error hidden"></p>
+      <div class="modal-actions">
+        <div></div>
+        <div class="modal-actions-right">
+          <button type="button" id="btn-quickunlock-setup-skip" class="btn-ghost">No grazie</button>
+          <button type="submit" class="btn-primary">Attiva</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="email-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2>Email salvata</h2>
+    <form id="form-email-edit">
+      <input type="hidden" id="email-edit-id">
+      <label>Colore</label>
+      <input type="color" id="email-edit-color">
+      <label>Nome</label>
+      <input type="text" id="email-edit-label" required>
+      <label>Email</label>
+      <input type="email" id="email-edit-address" required>
+      <div class="modal-actions">
+        <button type="button" id="btn-delete-email" class="btn-danger">Elimina</button>
+        <div class="modal-actions-right">
+          <button type="button" id="btn-cancel-email" class="btn-ghost">Annulla</button>
+          <button type="submit" class="btn-primary">Salva</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="confirm-modal" class="modal hidden">
+  <div class="modal-content">
+    <p id="confirm-message"></p>
+    <div class="modal-actions">
+      <div></div>
+      <div class="modal-actions-right">
+        <button type="button" id="btn-confirm-no" class="btn-ghost">Annulla</button>
+        <button type="button" id="btn-confirm-yes" class="btn-danger">Elimina</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/js/crypto.js"></script>
+<script src="/js/quickunlock.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

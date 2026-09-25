@@ -1,0 +1,21 @@
+# File autosufficiente: basta questo (nessun .env obbligatorio, nessun altro file).
+# L'immagine viene costruita da GitHub Actions e scaricata da ghcr.io.
+# L'app va esposta in HTTPS (es. Cloudflare Tunnel verso http://IP-del-NAS:3000):
+# il browser attiva la cifratura solo su HTTPS.
+services:
+  vaultpass:
+    image: ghcr.io/jstplink/vaultpass:latest
+    container_name: vaultpass
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
+      - SESSION_HOURS=${SESSION_HOURS:-12}
+      - TZ=${TZ:-Europe/Rome}
+    volumes:
+      - ./data:/app/data
