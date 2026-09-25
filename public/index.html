@@ -6,7 +6,9 @@
 <title>VaultPass</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
-<meta name="theme-color" content="#1c2333">
+<meta name="theme-color" content="#121212">
+<meta name="color-scheme" content="dark">
+<script src="/js/theme.js"></script>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -111,8 +113,8 @@
     <section id="tab-options" class="tab hidden">
       <h2>Opzioni</h2>
 
-      <div class="card">
-        <h3>Email di accesso salvate</h3>
+      <details class="card" data-section="emails">
+        <summary><h3>Email di accesso salvate</h3></summary>
         <p class="muted">Gestisci l'elenco delle email che usi per accedere ai siti, per richiamarle rapidamente quando aggiungi un account.</p>
         <div id="emails-list" class="chip-list"></div>
         <form id="form-add-email" class="inline-form">
@@ -121,16 +123,49 @@
           <input type="email" id="new-email-input" placeholder="nuova@email.it" required>
           <button type="submit" class="btn-secondary">Aggiungi</button>
         </form>
-      </div>
+      </details>
 
-      <div class="card">
-        <h3>Icone dei siti</h3>
-        <p class="muted">Mostra l'icona del sito accanto agli account. Le icone vengono richieste a DuckDuckGo, che vede i domini dei siti salvati (non gli URL completi, né utenti o password). L'impostazione vale solo su questo dispositivo.</p>
-        <label class="checkbox-row"><input type="checkbox" id="opt-show-icons"> Mostra le icone dei siti</label>
-      </div>
+      <details class="card" data-section="theme">
+        <summary><h3>Tema</h3></summary>
+        <p class="muted">Scegli l'aspetto dell'app. La scelta vale solo su questo dispositivo.</p>
+        <label for="opt-theme">Tema</label>
+        <select id="opt-theme">
+          <option value="auto">Automatico (segue il dispositivo)</option>
+          <option value="light">Chiaro</option>
+          <option value="dark">Scuro (grigi)</option>
+          <option value="blue">Scuro (blu notte)</option>
+        </select>
+      </details>
 
-      <div class="card card-import">
-        <h3>Importa account</h3>
+      <details class="card" data-section="ratelimit">
+        <summary><h3>Limite tentativi di accesso</h3></summary>
+        <p class="muted">Dopo troppi accessi ravvicinati (es. molti refresh durante i test) il login si blocca per qualche minuto. Qui puoi sospendere il limite <strong>solo per il tuo utente</strong>, per un massimo di 30 minuti. Durante la pausa il tuo account è meno protetto da chi prova a indovinare la password.</p>
+        <p class="muted" id="ratelimit-status"></p>
+        <div class="inline-form">
+          <button type="button" class="btn-secondary ratelimit-btn" data-minutes="10">10 minuti</button>
+          <button type="button" class="btn-secondary ratelimit-btn" data-minutes="30">30 minuti</button>
+          <button type="button" id="btn-ratelimit-off" class="btn-ghost hidden">Ripristina subito</button>
+        </div>
+      </details>
+
+      <details class="card" data-section="quickunlock">
+        <summary><h3>Sblocco rapido</h3></summary>
+        <p class="muted">Sblocca l'app con un PIN (e, se disponibile, l'impronta digitale o Face ID) invece di digitare la password principale ad ogni apertura su questo dispositivo.</p>
+        <p class="muted" id="quickunlock-status"></p>
+        <div class="button-row">
+          <button type="button" id="btn-quickunlock-toggle" class="btn-secondary"></button>
+          <button type="button" id="btn-change-pin" class="btn-secondary hidden">Cambia PIN</button>
+        </div>
+      </details>
+
+      <details class="card" data-section="password">
+        <summary><h3>Password principale</h3></summary>
+        <p class="muted">Cambia la password con cui accedi. I tuoi dati vengono ricifrati con la nuova password.</p>
+        <button type="button" id="btn-change-password" class="btn-secondary">Cambia password</button>
+      </details>
+
+      <details class="card card-import" data-section="import">
+        <summary><h3>Importa account</h3></summary>
         <p class="muted">Incolla una riga per account, in tre colonne: nome del sito, etichetta di un'email salvata (es. fp) e password (facoltativa). Puoi copiare direttamente le celle da un foglio di calcolo (colonne separate da tabulazione); a mano puoi usare anche «;». Gli account creati finiscono tra quelli «Da revisionare». Per indovinare l'indirizzo (nome.com, poi nome.it) il browser chiede al DNS pubblico di Cloudflare se il dominio esiste, quindi Cloudflare vede i nomi dei siti importati.</p>
         <textarea id="import-text" rows="6" spellcheck="false" placeholder="Spotify&#9;fp&#9;la-tua-password"></textarea>
         <label for="import-tld">Se esistono sia nome.com sia nome.it, preferisci</label>
@@ -145,46 +180,14 @@
           <button type="button" id="btn-import" class="btn-secondary">Importa</button>
         </div>
         <p class="muted" id="import-status"></p>
-      </div>
+      </details>
 
-      <div class="card">
-        <h3>Limite tentativi di accesso</h3>
-        <p class="muted">Dopo troppi accessi ravvicinati (es. molti refresh durante i test) il login si blocca per qualche minuto. Qui puoi sospendere il limite <strong>solo per il tuo utente</strong>, per un massimo di 30 minuti. Durante la pausa il tuo account è meno protetto da chi prova a indovinare la password.</p>
-        <p class="muted" id="ratelimit-status"></p>
-        <div class="inline-form">
-          <button type="button" class="btn-secondary ratelimit-btn" data-minutes="10">10 minuti</button>
-          <button type="button" class="btn-secondary ratelimit-btn" data-minutes="30">30 minuti</button>
-          <button type="button" id="btn-ratelimit-off" class="btn-ghost hidden">Ripristina subito</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Sblocco rapido</h3>
-        <p class="muted">Sblocca l'app con un PIN (e, se disponibile, l'impronta digitale o Face ID) invece di digitare la password principale ad ogni apertura su questo dispositivo.</p>
-        <p class="muted" id="quickunlock-status"></p>
-        <div class="button-row">
-          <button type="button" id="btn-quickunlock-toggle" class="btn-secondary"></button>
-          <button type="button" id="btn-change-pin" class="btn-secondary hidden">Cambia PIN</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Password principale</h3>
-        <p class="muted">Cambia la password con cui accedi. I tuoi dati vengono ricifrati con la nuova password.</p>
-        <button type="button" id="btn-change-password" class="btn-secondary">Cambia password</button>
-      </div>
-
-      <div class="card">
-        <h3>Account collegati con Google</h3>
+      <details class="card card-yellow" data-section="google">
+        <summary><h3>Account collegati con Google</h3></summary>
         <p class="muted">Funzione non ancora disponibile.</p>
-      </div>
+      </details>
 
-      <div class="card">
-        <h3>Sicurezza</h3>
-        <p class="muted">I dati sono cifrati sul tuo dispositivo prima di essere inviati al server (cifratura "zero-knowledge"). Nessuno, nemmeno chi gestisce il server, può leggerli senza la tua password principale.</p>
-      </div>
-
-      <p class="app-version"></p>
+<p class="app-version"></p>
 
       <button id="btn-logout" class="btn-danger btn-block">Esci</button>
     </section>
@@ -326,6 +329,27 @@
         <div class="modal-actions-right">
           <button type="button" id="btn-cancel-email" class="btn-ghost">Annulla</button>
           <button type="submit" class="btn-primary">Salva</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="reauth-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2>Conferma l'accesso</h2>
+    <p class="muted" id="reauth-hint">Per aprire questa sezione inserisci di nuovo la password principale.</p>
+    <form id="form-reauth">
+      <label for="reauth-password" id="reauth-label">Password principale</label>
+      <input type="password" id="reauth-password" required autocomplete="current-password">
+      <p id="reauth-error" class="error hidden"></p>
+      <div class="modal-actions">
+        <div class="modal-actions-left">
+          <button type="button" id="btn-reauth-biometric" class="btn-secondary hidden">Usa impronta / Face ID</button>
+        </div>
+        <div class="modal-actions-right">
+          <button type="button" id="btn-reauth-cancel" class="btn-ghost">Annulla</button>
+          <button type="submit" class="btn-primary">Conferma</button>
         </div>
       </div>
     </form>

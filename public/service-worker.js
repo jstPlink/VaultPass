@@ -1,7 +1,8 @@
-const CACHE_NAME = 'vaultpass-shell-v8';
+const CACHE_NAME = 'vaultpass-shell-v9';
 const SHELL_FILES = [
   '/',
   '/css/style.css',
+  '/js/theme.js',
   '/js/crypto.js',
   '/js/quickunlock.js',
   '/js/api.js',

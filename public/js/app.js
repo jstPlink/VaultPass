@@ -413,20 +413,124 @@
     }
   }
 
+  // ---------- Riconferma dell'accesso per la tab "Altro" ----------
+  // Ogni volta che si apre "Altro" si chiede di nuovo la password principale, il PIN dello
+  // sblocco rapido o l'impronta / Face ID (se attivi): chi trova l'app gia' sbloccata non
+  // vede gli account nascosti.
+  // La password si verifica nel browser, rifacendo il calcolo delle chiavi e confrontandolo
+  // con quello dell'accesso in corso: la password non viene inviata al server.
+  const REAUTH_MAX_FAILURES = 5;
+  const REAUTH_LOCK_MS = 60 * 1000;
+  let reauthCallback = null;
+  let reauthFailures = 0;
+  let reauthLockedUntil = 0;
+
+  function showReauthError(message) {
+    const el = $('reauth-error');
+    el.textContent = message;
+    show(el);
+  }
+
+  function requestReauth(onSuccess) {
+    reauthCallback = onSuccess;
+    $('form-reauth').reset();
+    hide($('reauth-error'));
+    const hasPin = !!(currentUsername && QuickUnlock.isConfigured(currentUsername));
+    $('reauth-label').textContent = hasPin ? 'Password principale o PIN' : 'Password principale';
+    $('reauth-hint').textContent = hasPin
+      ? 'Per aprire questa sezione inserisci di nuovo la password principale o il PIN di sblocco rapido.'
+      : 'Per aprire questa sezione inserisci di nuovo la password principale.';
+    $('btn-reauth-biometric').classList.toggle('hidden', !(currentUsername && QuickUnlock.hasBiometric(currentUsername)));
+    show($('reauth-modal'));
+    $('reauth-password').focus();
+  }
+
+  function closeReauth(confirmed) {
+    hide($('reauth-modal'));
+    $('form-reauth').reset();
+    const callback = confirmed ? reauthCallback : null;
+    reauthCallback = null;
+    if (callback) callback();
+  }
+
+  $('form-reauth').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const wait = reauthLockedUntil - Date.now();
+    if (wait > 0) {
+      showReauthError(`Troppi tentativi: riprova tra ${Math.ceil(wait / 1000)} secondi.`);
+      return;
+    }
+    const value = $('reauth-password').value;
+    let matches = false;
+    try {
+      // Un valore di 4-8 cifre si prova prima come PIN dello sblocco rapido (se attivo); se non
+      // e' il PIN si prova comunque come password (potrebbe essere una password numerica).
+      if (QuickUnlock.isConfigured(currentUsername) && /^\d{4,8}$/.test(value)) {
+        try {
+          const result = await QuickUnlock.unlockWithPin(currentUsername, value);
+          matches = result.authHash === currentAuthHash;
+        } catch (pinError) {
+          matches = false;
+        }
+      }
+      if (!matches) {
+        const { salt } = await Api.getSalt(currentUsername);
+        const keys = await deriveKeys(value, salt);
+        matches = keys.authHashB64 === currentAuthHash;
+      }
+    } catch (err) {
+      showReauthError('Verifica non riuscita: controlla la connessione e riprova.');
+      return;
+    }
+    if (matches) {
+      reauthFailures = 0;
+      closeReauth(true);
+      return;
+    }
+    reauthFailures += 1;
+    if (reauthFailures >= REAUTH_MAX_FAILURES) {
+      reauthFailures = 0;
+      reauthLockedUntil = Date.now() + REAUTH_LOCK_MS;
+      showReauthError('Troppi tentativi: riprova tra 1 minuto.');
+    } else {
+      showReauthError('Password non corretta.');
+    }
+    $('reauth-password').select();
+  });
+
+  $('btn-reauth-biometric').addEventListener('click', async () => {
+    hide($('reauth-error'));
+    try {
+      const result = await QuickUnlock.unlockWithBiometric(currentUsername);
+      if (result.authHash !== currentAuthHash) throw new Error('non corrisponde');
+      closeReauth(true);
+    } catch (err) {
+      showReauthError('Impronta / Face ID non riuscita: usa la password.');
+    }
+  });
+
+  $('btn-reauth-cancel').addEventListener('click', () => closeReauth(false));
+
   // ---------- Navigation ----------
+  function activateTab(btn) {
+    document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    // "Altro" mostra gli account nascosti nella stessa pagina Account.
+    const wantPrivate = btn.dataset.private === '1';
+    if (wantPrivate !== privateOpen) {
+      privateOpen = wantPrivate;
+      renderVaultList(vaultItems);
+      window.scrollTo(0, 0);
+    }
+    document.querySelectorAll('.tab').forEach((t) => hide(t));
+    show($(btn.dataset.tab));
+  }
+
   document.querySelectorAll('.nav-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      // "Altro" mostra gli account nascosti nella stessa pagina Account.
-      const wantPrivate = btn.dataset.private === '1';
-      if (wantPrivate !== privateOpen) {
-        privateOpen = wantPrivate;
-        renderVaultList(vaultItems);
-        window.scrollTo(0, 0);
-      }
-      document.querySelectorAll('.tab').forEach((t) => hide(t));
-      show($(btn.dataset.tab));
+      // Aprire "Altro" richiede di nuovo la password (o l'impronta / Face ID).
+      if (btn.dataset.private === '1' && !privateOpen) requestReauth(() => activateTab(btn));
+      else activateTab(btn);
     });
   });
 
@@ -625,7 +729,7 @@
     const emailSlot = div.querySelector('.item-card-email');
     if (item.email && options.showEmail !== false) emailSlot.replaceWith(emailBadge(item.email));
     else emailSlot.remove();
-    if (iconsEnabled()) div.prepend(siteIcon(item));
+    div.prepend(siteIcon(item));
     div.addEventListener('click', () => openItemModal(item));
     const btn = div.querySelector('.item-card-link');
     if (btn) {
@@ -685,10 +789,6 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) closePrivateFolder(); });
 
   // ---------- Icone dei siti ----------
-  const ICONS_KEY = 'vaultpass_show_icons';
-  function iconsEnabled() {
-    try { return localStorage.getItem(ICONS_KEY) !== 'false'; } catch (e) { return true; }
-  }
 
   // Gli URL sono sempre https://: si puo' scrivere solo il dominio (es. "spotify.it")
   // e un eventuale schema digitato (http://, ftp://...) viene sostituito da https://.
@@ -808,7 +908,7 @@
     hide($('item-error'));
     const modalTitle = $('item-modal-title');
     modalTitle.textContent = '';
-    if (item && iconsEnabled()) modalTitle.appendChild(siteIcon(item));
+    if (item) modalTitle.appendChild(siteIcon(item));
     modalTitle.appendChild(document.createTextNode(item ? item.name || '(senza nome)' : 'Nuovo account'));
     $('item-id').value = item ? item.id : '';
     $('item-name').value = item ? item.name || '' : '';
@@ -1227,12 +1327,25 @@
   });
   $('btn-ratelimit-off').addEventListener('click', () => changeRateLimit(0));
 
-  // ---------- Options: icone dei siti ----------
-  $('opt-show-icons').checked = iconsEnabled();
-  $('opt-show-icons').addEventListener('change', (e) => {
-    try { localStorage.setItem(ICONS_KEY, e.target.checked ? 'true' : 'false'); } catch (err) {}
-    renderVaultList(vaultItems);
-    $('search-input').dispatchEvent(new Event('input'));
+  // ---------- Opzioni: tema ----------
+  if (window.VaultPassTheme) {
+    $('opt-theme').value = window.VaultPassTheme.get();
+    $('opt-theme').addEventListener('change', (e) => window.VaultPassTheme.set(e.target.value));
+  }
+
+  // ---------- Opzioni: sezioni comprimibili ----------
+  // Ogni sezione parte chiusa; quelle aperte si ricordano su questo dispositivo.
+  const OPEN_SECTIONS_KEY = 'vaultpass_open_sections';
+  let openSections = [];
+  try { openSections = JSON.parse(localStorage.getItem(OPEN_SECTIONS_KEY) || '[]'); } catch (e) {}
+  document.querySelectorAll('#tab-options details.card[data-section]').forEach((details) => {
+    details.open = openSections.includes(details.dataset.section);
+    details.addEventListener('toggle', () => {
+      const key = details.dataset.section;
+      openSections = openSections.filter((k) => k !== key);
+      if (details.open) openSections.push(key);
+      try { localStorage.setItem(OPEN_SECTIONS_KEY, JSON.stringify(openSections)); } catch (e) {}
+    });
   });
 
   // ---------- Options: emails ----------

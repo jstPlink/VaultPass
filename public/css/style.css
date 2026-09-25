@@ -1,12 +1,119 @@
+/* Temi: l'app ha tre palette, scelte da Opzioni > Tema (js/theme.js imposta data-theme su <html>).
+   - predefinita: scuro in scala di grigi (queste variabili)
+   - [data-theme="blue"]: scuro blu notte
+   - [data-theme="light"]: chiaro
+   Per cambiare i colori di un tema basta modificare le sue variabili. */
 :root {
-  --bg: #f4f5f8;
+  color-scheme: dark;
+  --bg: #121212;
+  --card-bg: #1e1e1e;
+  --surface: #2a2a2a;       /* campi di testo, selettori */
+  --surface-2: #343434;     /* pulsanti secondari, icone senza immagine */
+  --hover: #2f2f2f;
+  --active-bg: #3a3a3a;
+  --border: #3d3d3d;
+  --outline: #9c9c9c;       /* contorno dei pulsanti "apri sito" */
+  --text: #ececec;
+  --muted: #b3b3b3;
+  --primary: #e6e6e6;       /* pulsanti principali: grigio chiaro con testo scuro */
+  --on-primary: #121212;
+  --primary-dark: #cccccc;
+  --primary-text: #f5f5f5;  /* link e voci attive */
+  --danger: #ff8a8a;
+  --danger-bg: #3d2626;
+  --tint-soft: 20%;         /* quanto si tinge una targhetta col colore dell'email */
+  --tint-strong: 26%;
+  --yellow-bg: #52481a;     /* da revisionare, funzioni provvisorie, importazione: giallo tenue */
+  --yellow-border: #c9a93a;
+  --yellow-muted: #f1e2a6;
+  --warn-bg: #43390f;
+  --warn-border: #b8902a;
+  --warn-text: #ffe8a8;
+  --info-bg: #2c2c2c;
+  --info-border: #5a5a5a;
+  --info-text: #dcdcdc;
+  --toast-bg: #ececec;
+  --toast-text: #121212;
+  --backdrop: rgba(0, 0, 0, 0.7);
+  --logout-border: #ffb4ba;
+  --glyph-filter: grayscale(1) brightness(2.4);  /* emoji utente in grigio chiaro */
+  --fab-shadow: rgba(0, 0, 0, 0.55);
+}
+
+/* Scuro blu notte */
+:root[data-theme="blue"] {
+  color-scheme: dark;
+  --bg: #0e1320;
+  --card-bg: #182033;
+  --surface: #222c44;
+  --surface-2: #2a3552;
+  --hover: #283452;
+  --active-bg: #24305a;
+  --border: #2f3a58;
+  --outline: #8b98bd;
+  --text: #e9edf7;
+  --muted: #a6b1cc;
+  --primary: #4a67f0;
+  --on-primary: #ffffff;
+  --primary-dark: #3a55d4;
+  --primary-text: #9db1ff;
+  --danger: #ff8080;
+  --danger-bg: #43222b;
+  --tint-soft: 20%;
+  --tint-strong: 26%;
+  --yellow-bg: #52481a;
+  --yellow-border: #c9a93a;
+  --yellow-muted: #f1e2a6;
+  --warn-bg: #43390f;
+  --warn-border: #b8902a;
+  --warn-text: #ffe8a8;
+  --info-bg: #1e2c58;
+  --info-border: #3f56a8;
+  --info-text: #c4d1ff;
+  --toast-bg: #e9edf7;
+  --toast-text: #0e1320;
+  --backdrop: rgba(0, 0, 0, 0.7);
+  --logout-border: #ffb4ba;
+  --glyph-filter: brightness(1.9) saturate(1.2);
+  --fab-shadow: rgba(0, 0, 0, 0.55);
+}
+
+/* Chiaro */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f3f7;
   --card-bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #e9ecf3;
+  --hover: #eef0f6;
+  --active-bg: #e8edff;
+  --border: #d5dae5;
+  --outline: #7d879f;
   --text: #1c2333;
-  --muted: #6b7280;
+  --muted: #566073;
   --primary: #3b5bfd;
+  --on-primary: #ffffff;
   --primary-dark: #2c46d1;
-  --danger: #e0453f;
-  --border: #e3e5ea;
+  --primary-text: #2c46d1;
+  --danger: #c9302c;
+  --danger-bg: #fdeceb;
+  --tint-soft: 9%;
+  --tint-strong: 15%;
+  --yellow-bg: #fff8d6;
+  --yellow-border: #eed37a;
+  --yellow-muted: #6b5510;
+  --warn-bg: #fff7e0;
+  --warn-border: #f1d38a;
+  --warn-text: #7a5200;
+  --info-bg: #eef3ff;
+  --info-border: #bcd0ff;
+  --info-text: #1f3a8a;
+  --toast-bg: #1c2333;
+  --toast-text: #ffffff;
+  --backdrop: rgba(0, 0, 0, 0.45);
+  --logout-border: #8f0f1a;
+  --glyph-filter: none;
+  --fab-shadow: rgba(0, 0, 0, 0.28);
 }
 
 * { box-sizing: border-box; }
@@ -36,8 +143,18 @@ input[type="text"], input[type="email"], input[type="password"], input[type="url
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
+  color: var(--text);
 }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.75; }
+select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+}
+input[type="checkbox"] { accent-color: var(--primary); }
 
 button {
   cursor: pointer;
@@ -46,11 +163,11 @@ button {
   padding: 0.6rem 1rem;
 }
 
-.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary { background: var(--primary); color: var(--on-primary); }
 .btn-primary:hover { background: var(--primary-dark); }
-.btn-secondary { background: #eef0f6; color: var(--text); }
+.btn-secondary { background: var(--surface-2); color: var(--text); }
 .btn-ghost { background: transparent; color: var(--muted); }
-.btn-danger { background: #fdeceb; color: var(--danger); }
+.btn-danger { background: var(--danger-bg); color: var(--danger); }
 .btn-icon { background: transparent; padding: 0.3rem 0.5rem; font-size: 1rem; }
 
 .card {
@@ -77,7 +194,7 @@ button {
   margin-top: 1.25rem;
 }
 .switch-link a {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: none;
   font-weight: 500;
 }
@@ -130,13 +247,13 @@ main {
   height: 56px;
   border-radius: 50%;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-size: 1.75rem;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(59, 91, 253, 0.4);
+  box-shadow: 0 4px 12px var(--fab-shadow);
   z-index: 15;
 }
 .fab:hover { background: var(--primary-dark); }
@@ -173,7 +290,7 @@ main {
 .item-card-link {
   flex-shrink: 0;
   align-self: center;
-  background: #eef0f6;
+  background: var(--surface-2);
   font-size: 1.5rem;
   line-height: 1;
   min-width: 3rem;
@@ -181,10 +298,10 @@ main {
   padding: 0.5rem 0.8rem;
   border-radius: 10px;
   /* Contorno ben visibile: si stacca dallo sfondo bianco e da quello giallo delle righe da revisionare. */
-  border: 2px solid #7d879f;
+  border: 2px solid var(--outline);
   color: var(--text);
 }
-.item-card-link:hover { background: #dfe4f5; border-color: var(--primary); color: var(--primary); }
+.item-card-link:hover { background: var(--hover); border-color: var(--primary-text); color: var(--primary-text); }
 #open-item-url {
   font-size: 1.4rem;
   min-width: 2.75rem;
@@ -204,8 +321,8 @@ main {
   gap: 0.75rem;
   width: 100%;
   padding: 0.65rem 0.85rem;
-  background: #f7f8fb;
-  background: color-mix(in srgb, var(--chip-color) 8%, #ffffff);
+  background: var(--card-bg);
+  background: color-mix(in srgb, var(--chip-color) var(--tint-soft), var(--card-bg));
   border: 1px solid var(--border);
   border-left: 5px solid var(--chip-color);
   border-radius: 10px;
@@ -248,7 +365,7 @@ main {
   padding: 0.2rem;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .top-nav {
@@ -269,14 +386,14 @@ main {
   border-bottom: 2px solid transparent;
 }
 .nav-btn.active {
-  color: var(--primary);
+  color: var(--primary-text);
   border-bottom-color: var(--primary);
 }
 
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.45);
+  background: var(--backdrop);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -313,8 +430,8 @@ main {
   bottom: 1.5rem;
   left: 50%;
   transform: translateX(-50%);
-  background: #1c2333;
-  color: #fff;
+  background: var(--toast-bg);
+  color: var(--toast-text);
   padding: 0.6rem 1.1rem;
   border-radius: 999px;
   font-size: 0.9rem;
@@ -333,7 +450,7 @@ main {
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: #eef0f6;
+  background: var(--surface-2);
   color: var(--muted);
   font-size: 1.3rem;
   font-weight: 700;
@@ -432,9 +549,9 @@ main {
     border-bottom: 1px solid var(--border);
     border-left: 4px solid transparent;
   }
-  .nav-btn:hover { background: #f4f5f8; }
+  .nav-btn:hover { background: var(--hover); }
   .nav-btn.active {
-    background: #eef1ff;
+    background: var(--active-bg);
     border-bottom-color: var(--border);
     border-left-color: var(--primary);
   }
@@ -470,10 +587,10 @@ main {
 .notice-warning {
   margin: 0.5rem 0 0;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #f1d38a;
+  border: 1px solid var(--warn-border);
   border-radius: 8px;
-  background: #fff7e0;
-  color: #7a5200;
+  background: var(--warn-bg);
+  color: var(--warn-text);
   font-size: 0.9rem;
 }
 
@@ -493,17 +610,17 @@ main {
   margin: 0 0 0.75rem;
 }
 .item-card.needs-review {
-  background: #fff3b8;
-  border-color: #ecc94b;
+  background: var(--yellow-bg);
+  border-color: var(--yellow-border);
 }
-.item-card.needs-review:hover { border-color: #b7791f; }
+.item-card.needs-review:hover { border-color: var(--yellow-muted); }
 .notice-info {
   margin: 0.5rem 0 0;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #bcd0ff;
+  border: 1px solid var(--info-border);
   border-radius: 8px;
-  background: #eef3ff;
-  color: #1f3a8a;
+  background: var(--info-bg);
+  color: var(--info-text);
   font-size: 0.9rem;
 }
 
@@ -520,7 +637,7 @@ main {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  background: #fff;
+  background: var(--surface);
 }
 .seg-btn {
   background: transparent;
@@ -529,7 +646,7 @@ main {
   color: var(--muted);
   font-weight: 500;
 }
-.seg-btn.active { background: var(--primary); color: #fff; }
+.seg-btn.active { background: var(--primary); color: var(--on-primary); }
 .group-actions { display: flex; gap: 0.25rem; }
 
 .item-card-email {
@@ -559,8 +676,8 @@ main {
   padding: 0.65rem 0.85rem;
   text-align: left;
   color: var(--text);
-  background: #f7f8fb;
-  background: color-mix(in srgb, var(--chip-color) 14%, #ffffff);
+  background: var(--card-bg);
+  background: color-mix(in srgb, var(--chip-color) var(--tint-strong), var(--card-bg));
   border: 1px solid var(--border);
   border-left: 6px solid var(--chip-color);
   border-radius: 10px;
@@ -575,20 +692,23 @@ main {
   min-width: 1.6rem;
   padding: 0.05rem 0.5rem;
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   font-size: 0.8rem;
   text-align: center;
 }
 .group-body { display: flex; flex-direction: column; gap: 0.5rem; }
 
-/* Importazione: stesso giallo delle righe da revisionare. */
-.card-import {
-  background: #fff3b8;
-  border: 1px solid #ecc94b;
+/* Giallo (come le righe da revisionare): importazione e funzioni provvisorie. */
+.card-import,
+.card-yellow {
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-border);
 }
-.card-import .muted,
-.card-import .field-hint { color: #6b5510; }
+/* Sul giallo il testo secondario diventa un giallo chiaro: resta leggibile. */
+.item-card.needs-review,
+.card-import,
+.card-yellow { --muted: var(--yellow-muted); }
 
 .insecure-notice {
   margin: 0;
@@ -596,3 +716,36 @@ main {
   border-radius: 0;
   text-align: center;
 }
+
+/* Esci: rosso acceso con contorno scuro, ben visibile. */
+#btn-logout {
+  background: #e11d2e;
+  color: #fff;
+  font-weight: 700;
+  border: 2px solid var(--logout-border);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+}
+#btn-logout:hover { background: #c4121f; }
+
+/* Card comprimibili (tutte le sezioni delle Opzioni): chiuse di default, si aprono cliccando il titolo. */
+details.card > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  list-style: none;
+  cursor: pointer;
+}
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary h3 { margin: 0; }
+details.card > summary::after {
+  content: '▸';
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+details.card[open] > summary { margin-bottom: 0.75rem; }
+details.card[open] > summary::after { content: '▾'; }
+
+/* Il simbolo 👤 e' un emoji scuro e colorato: il filtro dipende dal tema. */
+.item-card-glyph { filter: var(--glyph-filter); }
