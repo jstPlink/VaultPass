@@ -364,6 +364,7 @@
     emailEntries = [];
     currentUsername = null;
     currentAuthHash = null;
+    document.querySelector('.nav-btn[data-tab="tab-vault"]:not([data-private])').click();
     hide($('view-main'));
     show($('view-login'));
   });
@@ -415,7 +416,13 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
-      closePrivateFolder();
+      // "Altro" mostra gli account nascosti nella stessa pagina Account.
+      const wantPrivate = btn.dataset.private === '1';
+      if (wantPrivate !== privateOpen) {
+        privateOpen = wantPrivate;
+        renderVaultList(vaultItems);
+        window.scrollTo(0, 0);
+      }
       document.querySelectorAll('.tab').forEach((t) => hide(t));
       show($(btn.dataset.tab));
     });
@@ -429,9 +436,176 @@
     return (url.host + (url.pathname === '/' ? '' : url.pathname) + url.search).replace(/^www./, '');
   }
 
-  function itemCard(item) {
+  // ---------- Email associata: etichetta con il colore scelto nelle Opzioni ----------
+  function emailEntryFor(address) {
+    const key = String(address || '').trim().toLowerCase();
+    return key ? emailEntries.find((entry) => (entry.email || '').trim().toLowerCase() === key) : null;
+  }
+
+  // Testo bianco o nero, a seconda di quanto e' chiaro il colore di sfondo scelto.
+  function readableTextColor(hex) {
+    const match = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!match) return '#ffffff';
+    const n = parseInt(match[1], 16);
+    const luminance = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    return luminance > 0.6 ? '#1c2333' : '#ffffff';
+  }
+
+  function emailBadge(address) {
+    const entry = emailEntryFor(address);
+    const shownAddress = entry ? entry.email : address;
+    const wrap = document.createElement('span');
+    wrap.className = 'item-card-email';
+    let label = '';
+    if (entry) {
+      const color = entry.color || '#6b7280';
+      label = entry.label || entry.email;
+      const tag = document.createElement('span');
+      tag.className = 'email-tag';
+      tag.textContent = label;
+      tag.style.background = color;
+      tag.style.color = readableTextColor(color);
+      wrap.appendChild(tag);
+    }
+    // Se l'etichetta coincide con l'indirizzo (email senza nome scelto) non si ripete due volte.
+    if (label.toLowerCase() !== shownAddress.toLowerCase()) {
+      const text = document.createElement('span');
+      text.className = 'email-address';
+      text.textContent = shownAddress;
+      wrap.appendChild(text);
+    }
+    return wrap;
+  }
+
+  // ---------- Vista dell'elenco: per nome oppure raggruppata per email ----------
+  const VIEW_MODE_KEY = 'vaultpass_view_mode';
+  const COLLAPSED_KEY = 'vaultpass_collapsed_groups';
+  let viewMode = 'name';
+  let collapsedGroups = new Set();
+  try {
+    viewMode = localStorage.getItem(VIEW_MODE_KEY) === 'email' ? 'email' : 'name';
+    collapsedGroups = new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]'));
+  } catch (e) {}
+
+  function saveViewState() {
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, viewMode);
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsedGroups]));
+    } catch (e) {}
+  }
+
+  function hashText(text) {
+    let h = 5381;
+    for (const ch of text) h = ((h << 5) + h + ch.charCodeAt(0)) | 0;
+    return (h >>> 0).toString(36);
+  }
+
+  // Le chiavi dei gruppi non contengono indirizzi email (restano nel browser in chiaro).
+  function groupOf(item) {
+    const address = String(item.email || '').trim();
+    if (!address) return { key: 'none', label: 'Senza email', address: '', color: '#9ca3af' };
+    const entry = emailEntryFor(address);
+    if (entry) {
+      return { key: 'e' + entry.id, label: entry.label || entry.email, address: entry.email, color: entry.color || '#6b7280' };
+    }
+    return { key: 'x' + hashText(address.toLowerCase()), label: address, address: '', color: '#6b7280' };
+  }
+
+  function groupItems(items) {
+    const groups = new Map();
+    for (const item of items) {
+      const info = groupOf(item);
+      if (!groups.has(info.key)) groups.set(info.key, { ...info, items: [] });
+      groups.get(info.key).items.push(item);
+    }
+    return [...groups.values()].sort((a, b) =>
+      (a.key === 'none') - (b.key === 'none') ||
+      a.label.localeCompare(b.label, 'it', { sensitivity: 'base', numeric: true })
+    );
+  }
+
+  function groupSection(group) {
+    const section = document.createElement('div');
+    section.className = 'email-group';
+
+    const header = document.createElement('button');
+    header.type = 'button';
+    header.className = 'group-header';
+    header.style.setProperty('--chip-color', group.color);
+    const chevron = document.createElement('span');
+    chevron.className = 'group-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    const title = document.createElement('span');
+    title.className = 'group-title';
+    title.textContent = group.label;
+    header.append(chevron, title);
+    if (group.address && group.address !== group.label) {
+      const address = document.createElement('span');
+      address.className = 'group-address';
+      address.textContent = group.address;
+      header.appendChild(address);
+    }
+    const count = document.createElement('span');
+    count.className = 'group-count';
+    count.textContent = group.items.length;
+    header.appendChild(count);
+
+    const body = document.createElement('div');
+    body.className = 'group-body';
+    sortByName(group.items).forEach((item) => body.appendChild(itemCard(item, { showEmail: false })));
+
+    const apply = () => {
+      const collapsed = collapsedGroups.has(group.key);
+      chevron.textContent = collapsed ? '▸' : '▾';
+      header.setAttribute('aria-expanded', String(!collapsed));
+      body.classList.toggle('hidden', collapsed);
+    };
+    header.addEventListener('click', () => {
+      if (collapsedGroups.has(group.key)) collapsedGroups.delete(group.key);
+      else collapsedGroups.add(group.key);
+      saveViewState();
+      apply();
+    });
+    apply();
+
+    section.append(header, body);
+    return section;
+  }
+
+  function shownItems(items) {
+    return privateOpen ? items.filter((item) => item.hidden) : items.filter((item) => !item.hidden);
+  }
+
+  function updateViewToolbar() {
+    $('btn-view-name').classList.toggle('active', viewMode === 'name');
+    $('btn-view-email').classList.toggle('active', viewMode === 'email');
+    $('group-actions').classList.toggle('hidden', viewMode !== 'email');
+  }
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    saveViewState();
+    renderVaultList(vaultItems);
+  }
+
+  $('btn-view-name').addEventListener('click', () => setViewMode('name'));
+  $('btn-view-email').addEventListener('click', () => setViewMode('email'));
+  $('btn-collapse-all').addEventListener('click', () => {
+    collapsedGroups = new Set(groupItems(shownItems(vaultItems)).map((group) => group.key));
+    saveViewState();
+    renderVaultList(vaultItems);
+  });
+  $('btn-expand-all').addEventListener('click', () => {
+    collapsedGroups.clear();
+    saveViewState();
+    renderVaultList(vaultItems);
+  });
+
+  function itemCard(item, options = {}) {
     const div = document.createElement('div');
     div.className = 'item-card';
+    // Da revisionare: tutta la targhetta e' gialla (nessuna etichetta).
+    if (item.review) div.classList.add('needs-review');
     const linkBtn = item.url
       ? `<button type="button" class="btn-icon item-card-link" title="Apri il sito" data-url="${escapeHtml(item.url)}">↗</button>`
       : '';
@@ -441,11 +615,14 @@
       <div class="item-card-main">
         <strong>${escapeHtml(item.name || '(senza nome)')}</strong>
         ${line('👤', item.username)}
-        ${line('✉', item.email)}
+        <span class="item-card-email"></span>
         ${line('🔗', displayUrl(item.url))}
       </div>
       ${linkBtn}
     `;
+    const emailSlot = div.querySelector('.item-card-email');
+    if (item.email && options.showEmail !== false) emailSlot.replaceWith(emailBadge(item.email));
+    else emailSlot.remove();
     if (iconsEnabled()) div.prepend(siteIcon(item));
     div.addEventListener('click', () => openItemModal(item));
     const btn = div.querySelector('.item-card-link');
@@ -464,38 +641,15 @@
     if (target) window.open(target.href, '_blank', 'noopener');
   }
 
-  // Cartella nascosta: gli account con "hidden" non stanno nell'elenco principale, si
-  // aprono dalla riga "Altro" in fondo alla lista. La riga c'e' SEMPRE, anche senza account
-  // nascosti, e non mostra conteggi: chi guarda lo schermo non puo' capire cosa contiene.
+  // Account nascosti: quelli con "hidden" non stanno nell'elenco principale, si vedono dalla
+  // tab "Altro" della barra di navigazione. La tab c'e' SEMPRE, anche senza account nascosti,
+  // e non mostra conteggi: chi guarda lo schermo non puo' capire cosa contiene.
   let privateOpen = false;
 
+  // Torna alla tab Account (app in secondo piano): "Altro" non resta aperta.
   function closePrivateFolder() {
     if (!privateOpen) return;
-    privateOpen = false;
-    renderVaultList(vaultItems);
-  }
-
-  function privateFolderCard() {
-    const div = document.createElement('div');
-    div.className = 'item-card folder-card';
-    const icon = document.createElement('span');
-    icon.className = 'site-icon';
-    icon.textContent = '📁';
-    const main = document.createElement('div');
-    main.className = 'item-card-main';
-    const title = document.createElement('strong');
-    title.textContent = 'Altro';
-    main.appendChild(title);
-    const arrow = document.createElement('span');
-    arrow.className = 'folder-arrow';
-    arrow.textContent = '›';
-    div.append(icon, main, arrow);
-    div.addEventListener('click', () => {
-      privateOpen = true;
-      renderVaultList(vaultItems);
-      window.scrollTo(0, 0);
-    });
-    return div;
+    document.querySelector('.nav-btn[data-tab="tab-vault"]:not([data-private])').click();
   }
 
   // Ordine alfabetico per nome (senza badare a maiuscole/accenti, numeri in ordine
@@ -513,16 +667,19 @@
     const list = $('vault-list');
     list.innerHTML = '';
     const hiddenItems = items.filter((item) => item.hidden);
+    const pendingReview = items.filter((item) => item.review).length;
+    $('review-count').textContent = pendingReview;
+    $('review-banner').classList.toggle('hidden', privateOpen || pendingReview === 0);
     $('private-header').classList.toggle('hidden', !privateOpen);
     $('vault-empty').classList.toggle('hidden', privateOpen || items.length > 0);
     $('private-empty').classList.toggle('hidden', !privateOpen || hiddenItems.length > 0);
-    const shown = sortByName(privateOpen ? hiddenItems : items.filter((item) => !item.hidden));
-    shown.forEach((item) => list.appendChild(itemCard(item)));
-    if (!privateOpen) list.appendChild(privateFolderCard());
+    updateViewToolbar();
+    const shown = sortByName(shownItems(items));
+    if (viewMode === 'email') groupItems(shown).forEach((group) => list.appendChild(groupSection(group)));
+    else shown.forEach((item) => list.appendChild(itemCard(item)));
   }
 
-  $('btn-private-back').addEventListener('click', closePrivateFolder);
-  // Per riservatezza la cartella si richiude cambiando tab o mandando l'app in secondo piano.
+  // Per riservatezza la tab "Altro" si chiude mandando l'app in secondo piano.
   document.addEventListener('visibilitychange', () => { if (document.hidden) closePrivateFolder(); });
 
   // ---------- Icone dei siti ----------
@@ -644,6 +801,7 @@
   }
 
   function openItemModal(item) {
+    resetReviewUi();
     hide($('item-dup-notice'));
     hide($('item-error'));
     const modalTitle = $('item-modal-title');
@@ -690,6 +848,7 @@
   $('form-item').addEventListener('input', () => hide($('item-error')));
 
   function closeItemModal() {
+    resetReviewUi();
     hide(itemModal);
     $('form-item').reset();
   }
@@ -713,6 +872,7 @@
   $('form-item').addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = $('item-id').value;
+    const wasReview = reviewActive;
     const data = {
       name: $('item-name').value.trim(),
       url: storedUrl($('item-url').value),
@@ -744,18 +904,290 @@
     renderVaultList(vaultItems);
     closeItemModal();
     toast('Salvato');
+    if (wasReview) openReviewItem();
   });
 
   $('btn-delete-item').addEventListener('click', async () => {
     const id = $('item-id').value;
     if (!id) return;
+    const wasReview = reviewActive;
     if (!(await confirmDialog('Eliminare questo account?'))) return;
     await Api.deleteItem(id);
     vaultItems = vaultItems.filter((i) => String(i.id) !== String(id));
     renderVaultList(vaultItems);
     closeItemModal();
     toast('Eliminato');
+    if (wasReview) openReviewItem();
   });
+
+  // ---------- Revisione degli account importati ----------
+  // Gli account importati hanno "review: true" (nei dati cifrati). La revisione li
+  // mostra uno alla volta nel form: "Conferma e avanti" salva (e toglie il flag),
+  // "Salta" passa oltre lasciandolo da rivedere, "Esci" interrompe.
+  let reviewQueue = [];
+  let reviewIndex = 0;
+  let reviewActive = false;
+
+  function resetReviewUi() {
+    reviewActive = false;
+    hide($('item-review-bar'));
+    hide($('btn-review-skip'));
+    $('btn-save-item').textContent = 'Salva';
+    $('btn-cancel-item').textContent = 'Annulla';
+  }
+
+  function startReview() {
+    const pending = sortByName(vaultItems.filter((item) => item.review));
+    if (pending.length === 0) {
+      toast('Nessun account da revisionare');
+      return;
+    }
+    reviewQueue = pending.map((item) => item.id);
+    reviewIndex = 0;
+    openReviewItem();
+  }
+
+  // Apre il prossimo account ancora da revisionare (salta quelli confermati o eliminati).
+  function openReviewItem() {
+    while (reviewIndex < reviewQueue.length) {
+      const item = vaultItems.find((i) => i.id === reviewQueue[reviewIndex]);
+      if (item && item.review) {
+        openItemModal(item);
+        reviewActive = true;
+        const bar = $('item-review-bar');
+        bar.textContent = `Revisione ${reviewIndex + 1} di ${reviewQueue.length}: controlla i dati e conferma.`;
+        show(bar);
+        show($('btn-review-skip'));
+        $('btn-save-item').textContent = 'Conferma e avanti';
+        $('btn-cancel-item').textContent = 'Esci';
+        return;
+      }
+      reviewIndex++;
+    }
+    closeItemModal();
+    const left = vaultItems.filter((i) => i.review).length;
+    toast(left ? `Revisione terminata: ${left} ancora da rivedere` : 'Revisione completata');
+  }
+
+  $('btn-review-start').addEventListener('click', startReview);
+  $('btn-review-skip').addEventListener('click', () => {
+    reviewIndex++;
+    closeItemModal();
+    openReviewItem();
+  });
+
+  // ---------- Importazione da elenco ----------
+  const IMPORT_PASSWORD_KEY = 'vaultpass_import_password';
+  const IMPORT_TLD_KEY = 'vaultpass_import_tld';
+
+  // Una riga per account, in tre colonne: nome del sito, etichetta email, password (facoltativa).
+  // Copiando dal foglio di calcolo le colonne arrivano separate da tabulazioni; a mano si puo'
+  // usare anche ";" o "|" (solo le prime due occorrenze: il resto della riga e' la password).
+  function splitImportLine(line) {
+    if (line.includes('\t')) return line.split('\t').map(unquoteCell);
+    const parts = [];
+    let rest = line;
+    for (let i = 0; i < 2; i++) {
+      const at = rest.search(/[;|]/);
+      if (at < 0) break;
+      parts.push(rest.slice(0, at));
+      rest = rest.slice(at + 1);
+    }
+    parts.push(rest);
+    return parts;
+  }
+
+  // Le celle con virgolette copiate da un foglio arrivano racchiuse tra virgolette (con quelle
+  // interne raddoppiate): si tolgono per riavere il testo originale, es. "solo ""98""" -> solo "98".
+  function unquoteCell(cell) {
+    const text = cell.trim();
+    return text.length >= 2 && text.startsWith('"') && text.endsWith('"')
+      ? text.slice(1, -1).replace(/""/g, '"')
+      : cell;
+  }
+
+  function parseImportText(text) {
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [name = '', code = '', password = ''] = splitImportLine(line);
+        return { name: name.trim(), code: code.trim(), password: password.trim() };
+      })
+      .filter((row) => row.name);
+  }
+
+  function domainSlug(name) {
+    return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+  }
+
+  // Verifica se un dominio esiste chiedendo il record DNS al resolver pubblico di Cloudflare
+  // (DNS over HTTPS): NXDOMAIN o nessuna risposta = non esiste. E' solo un'ipotesi (un dominio
+  // "parcheggiato" esiste comunque), per questo poi c'e' la revisione.
+  async function domainExists(host) {
+    try {
+      const res = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=A`, {
+        headers: { Accept: 'application/dns-json' },
+        signal: AbortSignal.timeout(6000),
+      });
+      const data = await res.json();
+      return data.Status === 0 && Array.isArray(data.Answer) && data.Answer.length > 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function guessUrl(name, tlds) {
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(name)) return 'https://' + name.toLowerCase();
+    // Un numero finale separato da uno spazio ("iliad 1", "iliad 2") distingue account dello
+    // stesso sito: per l'indirizzo si usa solo il nome ("iliad"). "trading212" resta com'e'.
+    const slug = domainSlug(name.replace(/\s+\d+$/, ''));
+    if (!slug) return '';
+    for (const tld of tlds) {
+      if (await domainExists(`${slug}.${tld}`)) return `https://${slug}.${tld}`;
+    }
+    return '';
+  }
+
+  async function mapLimit(list, limit, fn) {
+    const results = new Array(list.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < list.length) {
+        const i = next++;
+        results[i] = await fn(list[i], i);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, list.length) }, worker));
+    return results;
+  }
+
+  // Modello della password predefinita: {nome} diventa il nome del sito (minuscolo, senza spazi).
+  function importPassword(template, siteName) {
+    return template.replace(/\{nome\}/gi, () => siteName.toLowerCase().replace(/\s+/g, ''));
+  }
+
+  async function runImport() {
+    const status = $('import-status');
+    const rows = parseImportText($('import-text').value);
+    if (rows.length === 0) {
+      status.textContent = 'Incolla almeno una riga.';
+      return;
+    }
+    const passwordTemplate = $('import-password').value.trim();
+    const preferred = $('import-tld').value;
+    // .org e .net solo come ultima possibilita', se non esiste ne' .com ne' .it.
+    const tlds = preferred === 'it' ? ['it', 'com', 'org', 'net'] : ['com', 'it', 'org', 'net'];
+    try {
+      localStorage.setItem(IMPORT_PASSWORD_KEY, passwordTemplate);
+      localStorage.setItem(IMPORT_TLD_KEY, preferred);
+    } catch (e) {}
+    const button = $('btn-import');
+    button.disabled = true;
+    try {
+      // Salta gli account gia' presenti: reimportare non crea doppioni. Con un'email indicata conta
+      // la coppia nome + email (lo stesso sito con email diverse resta distinto, es. due
+      // "battle.net"); senza email basta lo stesso nome. Vale anche per le righe ripetute nell'elenco.
+      const emailKeyFor = (code) => {
+        const first = code.split(/[\/,]/)[0].trim().toLowerCase();
+        if (!first) return '';
+        const match = emailEntries.find((entry) => (entry.label || '').trim().toLowerCase() === first);
+        return match ? match.email.trim().toLowerCase() : 'sigla:' + first;
+      };
+      const knownNames = new Set(vaultItems.map((item) => (item.name || '').trim().toLowerCase()));
+      const knownPairs = new Set(
+        vaultItems.map((item) => `${(item.name || '').trim().toLowerCase()}|${(item.email || '').trim().toLowerCase()}`)
+      );
+      const fresh = [];
+      let skipped = 0;
+      for (const row of rows) {
+        const nameKey = row.name.toLowerCase();
+        const emailKey = emailKeyFor(row.code);
+        const duplicate = emailKey ? knownPairs.has(`${nameKey}|${emailKey}`) : knownNames.has(nameKey);
+        if (duplicate) { skipped++; continue; }
+        knownNames.add(nameKey);
+        knownPairs.add(`${nameKey}|${emailKey}`);
+        fresh.push(row);
+      }
+      if (fresh.length === 0) {
+        status.textContent = `Nessun account nuovo: ${skipped} già presenti.`;
+        return;
+      }
+
+      let searched = 0;
+      status.textContent = 'Cerco gli indirizzi dei siti…';
+      const urls = await mapLimit(fresh, 6, async (row) => {
+        const url = await guessUrl(row.name, tlds);
+        status.textContent = `Cerco gli indirizzi dei siti… ${++searched}/${fresh.length}`;
+        return url;
+      });
+
+      const unknownCodes = new Set();
+      const items = fresh.map((row, i) => {
+        let email = '';
+        let notes = '';
+        // Piu' sigle nella stessa cella ("pk / fp"): la prima diventa l'email dell'account,
+        // le altre finiscono nelle note per non perderle.
+        const codes = row.code.split(/[\/,]/).map((code) => code.trim()).filter(Boolean);
+        codes.forEach((code, index) => {
+          const match = emailEntries.find((entry) => (entry.label || '').trim().toLowerCase() === code.toLowerCase());
+          if (index === 0 && match) {
+            email = match.email;
+          } else if (index === 0) {
+            unknownCodes.add(code);
+            notes = `Etichetta email nell'elenco importato: ${code}`;
+          } else {
+            if (!match) unknownCodes.add(code);
+            notes += `${notes ? '\n' : ''}Altra email nell'elenco importato: ${code}${match ? ` (${match.email})` : ''}`;
+          }
+        });
+        return {
+          name: row.name,
+          url: urls[i],
+          email,
+          username: '',
+          password: row.password || importPassword(passwordTemplate, row.name),
+          notes,
+          hidden: false,
+          review: true,
+        };
+      });
+
+      let message = `Creo ${items.length} account (${items.filter((item) => item.url).length} con indirizzo trovato)`;
+      if (skipped) message += `, ${skipped} già presenti saltati`;
+      if (unknownCodes.size) message += `. Nessuna email salvata con etichetta: ${[...unknownCodes].join(', ')}`;
+      if (!(await confirmDialog(message + '. Procedo?', 'Importa'))) {
+        status.textContent = 'Importazione annullata.';
+        return;
+      }
+
+      let created = 0;
+      try {
+        for (const data of items) {
+          const { iv, ciphertext } = await encryptJSON(encKey, data);
+          const res = await Api.createItem(iv, ciphertext);
+          vaultItems.unshift({ id: res.id, ...data });
+          status.textContent = `Creo gli account… ${++created}/${items.length}`;
+        }
+      } finally {
+        renderVaultList(vaultItems);
+      }
+      status.textContent = `Importati ${created} account: li trovi nella pagina Account, con l'avviso «Da revisionare».`;
+      $('import-text').value = '';
+      toast(`${created} account importati`);
+    } catch (err) {
+      status.textContent = `Importazione interrotta: ${err.message || 'errore'}. Gli account già creati restano salvati.`;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  $('btn-import').addEventListener('click', runImport);
+  try {
+    $('import-password').value = localStorage.getItem(IMPORT_PASSWORD_KEY) || '';
+    $('import-tld').value = localStorage.getItem(IMPORT_TLD_KEY) || 'com';
+  } catch (e) {}
 
   // ---------- Options: limite tentativi di accesso ----------
   let rateLimitTimer = null;
@@ -837,6 +1269,7 @@
       chip.addEventListener('click', () => openEmailModal(e));
       container.appendChild(chip);
     });
+    renderVaultList(vaultItems);
   }
 
   $('form-add-email').addEventListener('submit', async (e) => {

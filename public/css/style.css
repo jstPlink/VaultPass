@@ -180,8 +180,11 @@ main {
   min-height: 3rem;
   padding: 0.5rem 0.8rem;
   border-radius: 10px;
+  /* Contorno ben visibile: si stacca dallo sfondo bianco e da quello giallo delle righe da revisionare. */
+  border: 2px solid #7d879f;
+  color: var(--text);
 }
-.item-card-link:hover { background: #e1e5f2; }
+.item-card-link:hover { background: #dfe4f5; border-color: var(--primary); color: var(--primary); }
 #open-item-url {
   font-size: 1.4rem;
   min-width: 2.75rem;
@@ -410,7 +413,10 @@ main {
     grid-column: 1;
     grid-row: 2;
     flex-direction: column;
-    align-self: stretch;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
     align-items: stretch;
     justify-content: flex-start;
     max-width: none;
@@ -477,7 +483,109 @@ main {
   gap: 0.75rem;
   margin-bottom: 0.75rem;
 }
-.folder-card { align-items: center; }
-.folder-card .site-icon { font-size: 1.4rem; }
-.folder-arrow { flex-shrink: 0; color: var(--muted); font-size: 1.5rem; padding: 0 0.4rem; }
 .field-hint { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--muted); }
+
+.review-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+}
+.item-card.needs-review {
+  background: #fff3b8;
+  border-color: #ecc94b;
+}
+.item-card.needs-review:hover { border-color: #b7791f; }
+.notice-info {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #bcd0ff;
+  border-radius: 8px;
+  background: #eef3ff;
+  color: #1f3a8a;
+  font-size: 0.9rem;
+}
+
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+.seg-btn {
+  background: transparent;
+  border-radius: 0;
+  padding: 0.5rem 1rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.seg-btn.active { background: var(--primary); color: #fff; }
+.group-actions { display: flex; gap: 0.25rem; }
+
+.item-card-email {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.email-tag {
+  display: inline-block;
+  padding: 0.05rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.email-address { color: var(--text); overflow-wrap: anywhere; }
+
+.email-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem; }
+.group-header {
+  --chip-color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  color: var(--text);
+  background: #f7f8fb;
+  background: color-mix(in srgb, var(--chip-color) 14%, #ffffff);
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--chip-color);
+  border-radius: 10px;
+}
+.group-header:hover { border-color: var(--chip-color); }
+.group-chevron { flex-shrink: 0; width: 1rem; color: var(--muted); }
+.group-title { font-weight: 700; }
+.group-address { color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+.group-count {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 1.6rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.group-body { display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* Importazione: stesso giallo delle righe da revisionare. */
+.card-import {
+  background: #fff3b8;
+  border: 1px solid #ecc94b;
+}
+.card-import .muted,
+.card-import .field-hint { color: #6b5510; }

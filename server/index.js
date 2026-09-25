@@ -40,7 +40,8 @@ app.use(
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
         imgSrc: ["'self'", 'data:', 'https://icons.duckduckgo.com'],
-        connectSrc: ["'self'"],
+        // cloudflare-dns.com: solo per l'importazione, che verifica quali domini esistono.
+        connectSrc: ["'self'", 'https://cloudflare-dns.com'],
       },
     },
   })

@@ -70,12 +70,26 @@
     <button class="nav-btn active" data-tab="tab-vault">Account</button>
     <button class="nav-btn" data-tab="tab-search">Cerca</button>
     <button class="nav-btn" data-tab="tab-options">Opzioni</button>
+    <button class="nav-btn" data-tab="tab-vault" data-private="1">Altro</button>
   </nav>
 
   <main>
     <section id="tab-vault" class="tab">
+      <div class="list-toolbar">
+        <div class="segmented" role="group" aria-label="Vista dell'elenco">
+          <button type="button" id="btn-view-name" class="seg-btn active">Per nome</button>
+          <button type="button" id="btn-view-email" class="seg-btn">Per email</button>
+        </div>
+        <div id="group-actions" class="group-actions hidden">
+          <button type="button" id="btn-collapse-all" class="btn-ghost">Comprimi tutto</button>
+          <button type="button" id="btn-expand-all" class="btn-ghost">Espandi tutto</button>
+        </div>
+      </div>
+      <div id="review-banner" class="notice-warning review-banner hidden">
+        <span><strong id="review-count"></strong> account da revisionare</span>
+        <button type="button" id="btn-review-start" class="btn-secondary">Inizia revisione</button>
+      </div>
       <div id="private-header" class="private-header hidden">
-        <button type="button" id="btn-private-back" class="btn-secondary">← Indietro</button>
         <strong>Altro</strong>
       </div>
       <div id="vault-list" class="item-list"></div>
@@ -109,6 +123,24 @@
         <h3>Icone dei siti</h3>
         <p class="muted">Mostra l'icona del sito accanto agli account. Le icone vengono richieste a DuckDuckGo, che vede i domini dei siti salvati (non gli URL completi, né utenti o password). L'impostazione vale solo su questo dispositivo.</p>
         <label class="checkbox-row"><input type="checkbox" id="opt-show-icons"> Mostra le icone dei siti</label>
+      </div>
+
+      <div class="card card-import">
+        <h3>Importa account</h3>
+        <p class="muted">Incolla una riga per account, in tre colonne: nome del sito, etichetta di un'email salvata (es. fp) e password (facoltativa). Puoi copiare direttamente le celle da un foglio di calcolo (colonne separate da tabulazione); a mano puoi usare anche «;». Gli account creati finiscono tra quelli «Da revisionare». Per indovinare l'indirizzo (nome.com, poi nome.it) il browser chiede al DNS pubblico di Cloudflare se il dominio esiste, quindi Cloudflare vede i nomi dei siti importati.</p>
+        <textarea id="import-text" rows="6" spellcheck="false" placeholder="Spotify&#9;fp&#9;la-tua-password"></textarea>
+        <label for="import-tld">Se esistono sia nome.com sia nome.it, preferisci</label>
+        <select id="import-tld">
+          <option value="com">.com</option>
+          <option value="it">.it</option>
+        </select>
+        <label for="import-password">Password predefinita (per le righe senza password)</label>
+        <input type="text" id="import-password" autocomplete="off" spellcheck="false" placeholder="{nome}.XXXX">
+        <p class="field-hint">{nome} viene sostituito dal nome del sito (minuscolo, senza spazi). Il modello resta solo su questo dispositivo. Lascialo vuoto per non impostare una password.</p>
+        <div class="inline-form">
+          <button type="button" id="btn-import" class="btn-secondary">Importa</button>
+        </div>
+        <p class="muted" id="import-status"></p>
       </div>
 
       <div class="card">
@@ -159,6 +191,7 @@
   <div class="modal-content">
     <h2 id="item-modal-title">Nuovo account</h2>
     <p id="item-dup-notice" class="notice-warning hidden"></p>
+    <p id="item-review-bar" class="notice-info hidden"></p>
     <form id="form-item">
       <input type="hidden" id="item-id">
       <label>Nome del sito</label>
@@ -197,8 +230,9 @@
           <button type="button" id="btn-duplicate-item" class="btn-secondary hidden">Duplica</button>
         </div>
         <div class="modal-actions-right">
+          <button type="button" id="btn-review-skip" class="btn-secondary hidden">Salta</button>
           <button type="button" id="btn-cancel-item" class="btn-ghost">Annulla</button>
-          <button type="submit" class="btn-primary">Salva</button>
+          <button type="submit" id="btn-save-item" class="btn-primary">Salva</button>
         </div>
       </div>
     </form>
