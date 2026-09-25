@@ -42,13 +42,37 @@ app.use(
         imgSrc: ["'self'", 'data:', 'https://icons.duckduckgo.com'],
         // cloudflare-dns.com: solo per l'importazione, che verifica quali domini esistono.
         connectSrc: ["'self'", 'https://cloudflare-dns.com'],
+        // Senza questa direttiva l'app si carica (con stile) anche da http://IP-del-NAS:3000:
+        // il browser non prova a riscrivere in https gli indirizzi di script e stile.
+        upgradeInsecureRequests: null,
       },
     },
   })
 );
 const REMOTE_BASE = getRemoteBase();
 
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Cloudflare mette in cache i file statici per ore, mentre la pagina HTML no: dopo un
+// aggiornamento il browser rischiava di usare un vecchio script con la nuova pagina (e
+// mostrare una pagina vuota). Gli indirizzi di script e stile portano quindi la versione
+// della build (?v=...) e i file statici vanno sempre riconvalidati.
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const ASSET_VERSION = APP_COMMIT || `${APP_VERSION}-${Date.now().toString(36)}`;
+
+function sendIndex(req, res) {
+  fs.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8', (err, html) => {
+    if (err) return res.status(500).end();
+    const versioned = html.replace(/((?:src|href)="\/(?:js|css)\/[^"?]+)"/g, `$1?v=${ASSET_VERSION}"`);
+    res.set('Cache-Control', 'no-cache').type('html').send(versioned);
+  });
+}
+
+app.get(['/', '/index.html'], sendIndex);
+app.use(
+  express.static(PUBLIC_DIR, {
+    index: false,
+    setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+  })
+);
 
 // Versione dell'app (e commit da cui e' stata costruita l'immagine Docker).
 app.get('/api/version', (req, res) => {
@@ -73,9 +97,7 @@ if (REMOTE_BASE) {
   app.use('/api/emails', requireAuth, emailsRoutes);
 }
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
+app.get('*', sendIndex);
 
 const server = app.listen(PORT, () => {
   console.log(`VaultPass in ascolto sulla porta ${PORT}`);

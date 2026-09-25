@@ -51,6 +51,8 @@
 
   // ---------- Bootstrap ----------
   function bootstrap() {
+    // WebCrypto esiste solo su HTTPS o localhost: altrimenti l'accesso non puo' funzionare.
+    if (!window.isSecureContext || !(window.crypto && window.crypto.subtle)) show($('insecure-notice'));
     const lastUsername = QuickUnlock.getLastUsername();
     if (lastUsername && QuickUnlock.isConfigured(lastUsername)) {
       $('quickunlock-username').textContent = `Utente: ${lastUsername}`;

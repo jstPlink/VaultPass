@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaultpass-shell-v7';
+const CACHE_NAME = 'vaultpass-shell-v8';
 const SHELL_FILES = [
   '/',
   '/css/style.css',
@@ -40,6 +40,7 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request))
+      // Offline: gli indirizzi versionati (?v=...) trovano comunque il file in cache.
+      .catch(() => caches.match(event.request, { ignoreSearch: true }))
   );
 });
