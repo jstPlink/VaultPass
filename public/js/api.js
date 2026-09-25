@@ -25,6 +25,8 @@ window.Api = {
   login: (username, authHash) => apiRequest('POST', '/api/auth/login', { username, authHash }),
   logout: () => apiRequest('POST', '/api/auth/logout'),
   changePassword: (payload) => apiRequest('POST', '/api/auth/change-password', payload),
+  getRateLimit: () => apiRequest('GET', '/api/auth/rate-limit'),
+  setRateLimit: (minutes) => apiRequest('POST', '/api/auth/rate-limit', { minutes }),
 
   listItems: () => apiRequest('GET', '/api/vault/items'),
   createItem: (iv, ciphertext) => apiRequest('POST', '/api/vault/items', { iv, ciphertext }),

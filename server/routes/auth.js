@@ -17,7 +17,29 @@ const attempts = new Map();
 const WINDOW_MS = 10 * 60 * 1000;
 const LIMITS = { login: 8, register: 8, salt: 60, password: 8 };
 
-function isRateLimited(bucket, key) {
+// Per i test: DISABLE_RATE_LIMIT=true toglie del tutto i limiti (solo per uso locale).
+const RATE_LIMIT_DISABLED = process.env.DISABLE_RATE_LIMIT === 'true';
+if (RATE_LIMIT_DISABLED) console.log('ATTENZIONE: limiti sui tentativi di accesso disattivati (DISABLE_RATE_LIMIT)');
+
+// Sospensione temporanea, richiesta da un utente gia' autenticato, del limite di
+// login/salt per il SOLO proprio nome utente. Massimo 30 minuti, solo in memoria
+// (un riavvio del server la annulla), cosi' non indebolisce gli altri utenti.
+const MAX_SUSPEND_MINUTES = 30;
+const suspended = new Map();
+
+function suspendedUntil(username) {
+  const until = suspended.get(username);
+  if (!until) return null;
+  if (until <= Date.now()) {
+    suspended.delete(username);
+    return null;
+  }
+  return until;
+}
+
+function isRateLimited(bucket, key, username) {
+  if (RATE_LIMIT_DISABLED) return false;
+  if (username && suspendedUntil(username)) return false;
   const now = Date.now();
   const id = `${bucket}:${key}`;
   const entry = attempts.get(id);
@@ -95,10 +117,10 @@ router.post('/register', (req, res) => {
 });
 
 router.get('/salt', (req, res) => {
-  if (isRateLimited('salt', req.ip)) {
+  const username = String(req.query.username || '').trim();
+  if (isRateLimited('salt', req.ip, username)) {
     return res.status(429).json({ error: 'Troppi tentativi, riprova piu\' tardi' });
   }
-  const username = String(req.query.username || '').trim();
   if (!username || username.length > MAX_USERNAME_LENGTH) {
     return res.status(400).json({ error: 'Nome utente mancante' });
   }
@@ -109,7 +131,7 @@ router.get('/salt', (req, res) => {
 router.post('/login', (req, res) => {
   const { username, authHash } = req.body || {};
   const cleanUsername = typeof username === 'string' ? username.trim() : '';
-  if (isRateLimited('login', `${req.ip}:${cleanUsername}`)) {
+  if (isRateLimited('login', `${req.ip}:${cleanUsername}`, cleanUsername)) {
     return res.status(429).json({ error: 'Troppi tentativi, riprova piu\' tardi' });
   }
   const user = cleanUsername ? db.prepare('SELECT * FROM users WHERE username = ?').get(cleanUsername) : null;
@@ -118,6 +140,30 @@ router.post('/login', (req, res) => {
   }
   setSessionCookie(res, user);
   res.json({ ok: true });
+});
+
+// Stato e impostazione della sospensione del limite di accesso (solo per l'utente loggato).
+router.get('/rate-limit', requireAuth, (req, res) => {
+  const until = suspendedUntil(req.username);
+  res.json({ until: until ? new Date(until).toISOString() : null, maxMinutes: MAX_SUSPEND_MINUTES });
+});
+
+router.post('/rate-limit', requireAuth, (req, res) => {
+  const minutes = Number((req.body || {}).minutes);
+  if (!Number.isFinite(minutes) || minutes < 0 || minutes > MAX_SUSPEND_MINUTES) {
+    return res.status(400).json({ error: `Durata non valida (0-${MAX_SUSPEND_MINUTES} minuti)` });
+  }
+  if (minutes === 0) {
+    suspended.delete(req.username);
+    return res.json({ until: null, maxMinutes: MAX_SUSPEND_MINUTES });
+  }
+  // Riparte da zero: azzera anche i tentativi gia' contati per questo utente.
+  for (const id of attempts.keys()) {
+    if (id.startsWith('login:') && id.endsWith(`:${req.username}`)) attempts.delete(id);
+  }
+  const until = Date.now() + Math.round(minutes * 60 * 1000);
+  suspended.set(req.username, until);
+  res.json({ until: new Date(until).toISOString(), maxMinutes: MAX_SUSPEND_MINUTES });
 });
 
 router.post('/logout', (req, res) => {

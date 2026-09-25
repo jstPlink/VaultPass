@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaultpass-shell-v6';
+const CACHE_NAME = 'vaultpass-shell-v7';
 const SHELL_FILES = [
   '/',
   '/css/style.css',
@@ -26,7 +26,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+  // Solo file dell'app: le richieste verso altri domini (es. le icone dei siti) passano
+  // direttamente dal browser, altrimenti la CSP (connect-src 'self') le bloccherebbe.
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) {
     return;
   }
   // Network-first: garantisce che gli aggiornamenti dell'app arrivino subito,

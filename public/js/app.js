@@ -359,6 +359,7 @@
     await Api.logout();
     if (currentUsername) QuickUnlock.disable(currentUsername);
     encKey = null;
+    privateOpen = false;
     vaultItems = [];
     emailEntries = [];
     currentUsername = null;
@@ -374,6 +375,7 @@
     renderEmailChips();
     renderEmailSuggestions();
     renderQuickUnlockStatus();
+    loadRateLimit();
     show($('view-main'));
   }
 
@@ -413,49 +415,115 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
+      closePrivateFolder();
       document.querySelectorAll('.tab').forEach((t) => hide(t));
       show($(btn.dataset.tab));
     });
   });
 
   // ---------- Vault list rendering ----------
+  // Indirizzo da mostrare: senza "https://" e senza "/" finale.
+  function displayUrl(raw) {
+    const url = normalizeUrl(raw);
+    if (!url) return String(raw || '').trim();
+    return (url.host + (url.pathname === '/' ? '' : url.pathname) + url.search).replace(/^www./, '');
+  }
+
   function itemCard(item) {
     const div = document.createElement('div');
     div.className = 'item-card';
     const linkBtn = item.url
       ? `<button type="button" class="btn-icon item-card-link" title="Apri il sito" data-url="${escapeHtml(item.url)}">↗</button>`
       : '';
+    const line = (glyph, text) =>
+      text ? `<span class="item-card-line"><span class="item-card-glyph" aria-hidden="true">${glyph}</span><span>${escapeHtml(text)}</span></span>` : '';
     div.innerHTML = `
       <div class="item-card-main">
         <strong>${escapeHtml(item.name || '(senza nome)')}</strong>
-        <span class="muted">${escapeHtml(item.email || item.username || '')}</span>
+        ${line('👤', item.username)}
+        ${line('✉', item.email)}
+        ${line('🔗', displayUrl(item.url))}
       </div>
       ${linkBtn}
     `;
     if (iconsEnabled()) div.prepend(siteIcon(item));
-    div.addEventListener('click', () => openViewModal(item));
+    div.addEventListener('click', () => openItemModal(item));
     const btn = div.querySelector('.item-card-link');
     if (btn) {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        // Solo http/https: evita schemi come javascript: salvati in un URL.
-        const target = normalizeUrl(btn.dataset.url);
-        if (target) window.open(target.href, '_blank', 'noopener');
+        openSite(btn.dataset.url);
       });
     }
     return div;
   }
 
+  // Solo http/https: evita schemi come javascript: salvati in un URL.
+  function openSite(raw) {
+    const target = normalizeUrl(raw);
+    if (target) window.open(target.href, '_blank', 'noopener');
+  }
+
+  // Cartella nascosta: gli account con "hidden" non stanno nell'elenco principale, si
+  // aprono dalla riga "Altro" in fondo alla lista. La riga c'e' SEMPRE, anche senza account
+  // nascosti, e non mostra conteggi: chi guarda lo schermo non puo' capire cosa contiene.
+  let privateOpen = false;
+
+  function closePrivateFolder() {
+    if (!privateOpen) return;
+    privateOpen = false;
+    renderVaultList(vaultItems);
+  }
+
+  function privateFolderCard() {
+    const div = document.createElement('div');
+    div.className = 'item-card folder-card';
+    const icon = document.createElement('span');
+    icon.className = 'site-icon';
+    icon.textContent = '📁';
+    const main = document.createElement('div');
+    main.className = 'item-card-main';
+    const title = document.createElement('strong');
+    title.textContent = 'Altro';
+    main.appendChild(title);
+    const arrow = document.createElement('span');
+    arrow.className = 'folder-arrow';
+    arrow.textContent = '›';
+    div.append(icon, main, arrow);
+    div.addEventListener('click', () => {
+      privateOpen = true;
+      renderVaultList(vaultItems);
+      window.scrollTo(0, 0);
+    });
+    return div;
+  }
+
+  // Ordine alfabetico per nome (senza badare a maiuscole/accenti, numeri in ordine
+  // naturale: "Sito 2" prima di "Sito 10"); gli account senza nome vanno in fondo.
+  function sortByName(items) {
+    return [...items].sort((a, b) => {
+      const nameA = (a.name || '').trim();
+      const nameB = (b.name || '').trim();
+      if (!nameA || !nameB) return (nameA ? 0 : 1) - (nameB ? 0 : 1);
+      return nameA.localeCompare(nameB, 'it', { sensitivity: 'base', numeric: true });
+    });
+  }
+
   function renderVaultList(items) {
     const list = $('vault-list');
     list.innerHTML = '';
-    if (items.length === 0) {
-      show($('vault-empty'));
-    } else {
-      hide($('vault-empty'));
-      items.forEach((item) => list.appendChild(itemCard(item)));
-    }
+    const hiddenItems = items.filter((item) => item.hidden);
+    $('private-header').classList.toggle('hidden', !privateOpen);
+    $('vault-empty').classList.toggle('hidden', privateOpen || items.length > 0);
+    $('private-empty').classList.toggle('hidden', !privateOpen || hiddenItems.length > 0);
+    const shown = sortByName(privateOpen ? hiddenItems : items.filter((item) => !item.hidden));
+    shown.forEach((item) => list.appendChild(itemCard(item)));
+    if (!privateOpen) list.appendChild(privateFolderCard());
   }
+
+  $('btn-private-back').addEventListener('click', closePrivateFolder);
+  // Per riservatezza la cartella si richiude cambiando tab o mandando l'app in secondo piano.
+  document.addEventListener('visibilitychange', () => { if (document.hidden) closePrivateFolder(); });
 
   // ---------- Icone dei siti ----------
   const ICONS_KEY = 'vaultpass_show_icons';
@@ -522,12 +590,13 @@
     const results = $('search-results');
     results.innerHTML = '';
     if (!q) return;
-    const matches = vaultItems.filter((item) =>
+    // Gli account nascosti non compaiono nella ricerca.
+    const matches = vaultItems.filter((item) => !item.hidden && (
       (item.name || '').toLowerCase().includes(q) ||
       (item.email || '').toLowerCase().includes(q) ||
       (item.username || '').toLowerCase().includes(q)
-    );
-    matches.forEach((item) => results.appendChild(itemCard(item)));
+    ));
+    sortByName(matches).forEach((item) => results.appendChild(itemCard(item)));
     if (matches.length === 0) {
       const p = document.createElement('p');
       p.className = 'muted';
@@ -550,8 +619,37 @@
     });
   }
 
+  const ITEM_FIELDS = ['name', 'url', 'email', 'username', 'password', 'notes', 'hidden'];
+
+  // Cerca un account identico in tutti i campi (escluso quello che si sta modificando):
+  // impedisce di salvare copie doppie, una copia va modificata in almeno un campo.
+  function findIdenticalItem(data, ignoreId) {
+    const norm = (v) => String(v || '').trim().toLowerCase();
+    return vaultItems.find((other) =>
+      String(other.id) !== String(ignoreId) &&
+      ITEM_FIELDS.every((key) => {
+        if (key === 'hidden') return !!other.hidden === !!data.hidden;
+        if (key === 'password') return (other.password || '') === data.password;
+        if (key === 'url') return norm(storedUrl(other.url)) === norm(data.url);
+        return norm(other[key]) === norm(data[key]);
+      })
+    );
+  }
+
+  function showItemError(message) {
+    const el = $('item-error');
+    el.textContent = message;
+    show(el);
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
   function openItemModal(item) {
-    $('item-modal-title').textContent = item ? 'Modifica account' : 'Nuovo account';
+    hide($('item-dup-notice'));
+    hide($('item-error'));
+    const modalTitle = $('item-modal-title');
+    modalTitle.textContent = '';
+    if (item && iconsEnabled()) modalTitle.appendChild(siteIcon(item));
+    modalTitle.appendChild(document.createTextNode(item ? item.name || '(senza nome)' : 'Nuovo account'));
     $('item-id').value = item ? item.id : '';
     $('item-name').value = item ? item.name || '' : '';
     $('item-url').value = item ? item.url || '' : '';
@@ -560,9 +658,36 @@
     $('item-password').value = item ? item.password || '' : '';
     $('item-password').type = 'password';
     $('item-notes').value = item ? item.notes || '' : '';
+    // Un nuovo account creato dentro la cartella privata nasce gia' nascosto.
+    $('item-hidden').checked = item ? !!item.hidden : privateOpen;
     $('btn-delete-item').classList.toggle('hidden', !item);
+    $('btn-duplicate-item').classList.toggle('hidden', !item);
     show(itemModal);
   }
+
+  // Duplica: apre un NUOVO account precompilato con i dati di quello scelto.
+  // Il salvataggio e' bloccato finche' la copia resta identica all'originale.
+  function openDuplicateModal(item) {
+    openItemModal(null);
+    $('item-modal-title').textContent = `Duplica: ${item.name || '(senza nome)'}`;
+    $('item-name').value = item.name || '';
+    $('item-url').value = item.url || '';
+    $('item-email').value = item.email || '';
+    $('item-username').value = item.username || '';
+    $('item-password').value = item.password || '';
+    $('item-notes').value = item.notes || '';
+    $('item-hidden').checked = !!item.hidden;
+    const notice = $('item-dup-notice');
+    notice.textContent = 'Stai creando una copia. Per evitare account doppi devi modificare almeno un campo (ad esempio email o nome utente) prima di salvare.';
+    show(notice);
+    $('item-name').focus();
+  }
+
+  $('btn-duplicate-item').addEventListener('click', () => {
+    const source = vaultItems.find((i) => String(i.id) === $('item-id').value);
+    if (source) openDuplicateModal(source);
+  });
+  $('form-item').addEventListener('input', () => hide($('item-error')));
 
   function closeItemModal() {
     hide(itemModal);
@@ -571,6 +696,14 @@
 
   $('btn-new-item').addEventListener('click', () => openItemModal(null));
   $('btn-cancel-item').addEventListener('click', closeItemModal);
+
+  document.querySelectorAll('.copy-field').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const value = $(btn.dataset.copy).value;
+      copyToClipboard(btn.dataset.copy === 'item-url' ? storedUrl(value) : value, btn.dataset.label);
+    });
+  });
+  $('open-item-url').addEventListener('click', () => openSite($('item-url').value));
 
   $('toggle-item-password').addEventListener('click', () => {
     const input = $('item-password');
@@ -587,7 +720,13 @@
       username: $('item-username').value.trim(),
       password: $('item-password').value,
       notes: $('item-notes').value.trim(),
+      hidden: $('item-hidden').checked,
     };
+    const identical = findIdenticalItem(data, id);
+    if (identical) {
+      showItemError(`Esiste già un account identico («${identical.name || 'senza nome'}»): modifica almeno un campo per salvare.`);
+      return;
+    }
     const { iv, ciphertext } = await encryptJSON(encKey, data);
 
     if (data.email) {
@@ -618,55 +757,41 @@
     toast('Eliminato');
   });
 
-  // ---------- View modal ----------
-  const viewModal = $('view-modal');
-  let currentViewedItem = null;
+  // ---------- Options: limite tentativi di accesso ----------
+  let rateLimitTimer = null;
 
-  function detailRow(label, value, copyable) {
-    const safeVal = escapeHtml(value || '-');
-    const copyBtn = copyable && value
-      ? `<button type="button" class="btn-icon copy-btn" data-value="${escapeHtml(value)}" data-label="${label}">📋</button>`
-      : '';
-    return `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${safeVal}</span>${copyBtn}</div>`;
+  function renderRateLimit(until) {
+    clearTimeout(rateLimitTimer);
+    const end = until ? new Date(until) : null;
+    const active = !!end && end > new Date();
+    $('ratelimit-status').textContent = active
+      ? `Limite sospeso fino alle ${end.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}.`
+      : 'Limite attivo.';
+    $('btn-ratelimit-off').classList.toggle('hidden', !active);
+    if (active) rateLimitTimer = setTimeout(() => renderRateLimit(null), end - new Date());
   }
 
-  function openViewModal(item) {
-    currentViewedItem = item;
-    const modalTitle = $('view-modal-title');
-    modalTitle.textContent = '';
-    if (iconsEnabled()) modalTitle.appendChild(siteIcon(item));
-    modalTitle.appendChild(document.createTextNode(item.name || '(senza nome)'));
-    const body = $('view-modal-body');
-    body.innerHTML =
-      detailRow('URL', item.url, true) +
-      detailRow('Email', item.email, true) +
-      detailRow('Utente', item.username, true) +
-      `<div class="detail-row">
-        <span class="detail-label">Password</span>
-        <span class="detail-value password-mask" id="view-password-value" data-value="${escapeHtml(item.password || '')}">${item.password ? '••••••••' : '-'}</span>
-        ${item.password ? '<button type="button" class="btn-icon" id="toggle-view-password">👁</button><button type="button" class="btn-icon copy-btn" data-value="' + escapeHtml(item.password) + '" data-label="Password">📋</button>' : ''}
-      </div>` +
-      detailRow('Note', item.notes, false);
-
-    body.querySelectorAll('.copy-btn').forEach((btn) => {
-      btn.addEventListener('click', () => copyToClipboard(btn.dataset.value, btn.dataset.label));
-    });
-    const togglePwd = $('toggle-view-password');
-    if (togglePwd) {
-      togglePwd.addEventListener('click', () => {
-        const el = $('view-password-value');
-        const revealed = el.textContent !== '••••••••';
-        el.textContent = revealed ? '••••••••' : el.dataset.value;
-      });
+  async function loadRateLimit() {
+    try {
+      renderRateLimit((await Api.getRateLimit()).until);
+    } catch (e) {
+      $('ratelimit-status').textContent = '';
     }
-    show(viewModal);
   }
 
-  $('btn-close-view').addEventListener('click', () => hide(viewModal));
-  $('btn-edit-from-view').addEventListener('click', () => {
-    hide(viewModal);
-    openItemModal(currentViewedItem);
+  async function changeRateLimit(minutes) {
+    try {
+      renderRateLimit((await Api.setRateLimit(minutes)).until);
+      toast(minutes ? 'Limite sospeso' : 'Limite ripristinato');
+    } catch (e) {
+      toast(e.message || 'Operazione non riuscita');
+    }
+  }
+
+  document.querySelectorAll('.ratelimit-btn').forEach((btn) => {
+    btn.addEventListener('click', () => changeRateLimit(Number(btn.dataset.minutes)));
   });
+  $('btn-ratelimit-off').addEventListener('click', () => changeRateLimit(0));
 
   // ---------- Options: icone dei siti ----------
   $('opt-show-icons').checked = iconsEnabled();

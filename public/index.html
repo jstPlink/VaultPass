@@ -74,7 +74,12 @@
 
   <main>
     <section id="tab-vault" class="tab">
+      <div id="private-header" class="private-header hidden">
+        <button type="button" id="btn-private-back" class="btn-secondary">← Indietro</button>
+        <strong>Altro</strong>
+      </div>
       <div id="vault-list" class="item-list"></div>
+      <p id="private-empty" class="muted hidden">Nessun account qui.</p>
       <p id="vault-empty" class="muted hidden">Nessun account salvato. Aggiungine uno con il pulsante "+".</p>
       <button id="btn-new-item" class="fab" title="Nuovo account">+</button>
     </section>
@@ -104,6 +109,17 @@
         <h3>Icone dei siti</h3>
         <p class="muted">Mostra l'icona del sito accanto agli account. Le icone vengono richieste a DuckDuckGo, che vede i domini dei siti salvati (non gli URL completi, né utenti o password). L'impostazione vale solo su questo dispositivo.</p>
         <label class="checkbox-row"><input type="checkbox" id="opt-show-icons"> Mostra le icone dei siti</label>
+      </div>
+
+      <div class="card">
+        <h3>Limite tentativi di accesso</h3>
+        <p class="muted">Dopo troppi accessi ravvicinati (es. molti refresh durante i test) il login si blocca per qualche minuto. Qui puoi sospendere il limite <strong>solo per il tuo utente</strong>, per un massimo di 30 minuti. Durante la pausa il tuo account è meno protetto da chi prova a indovinare la password.</p>
+        <p class="muted" id="ratelimit-status"></p>
+        <div class="inline-form">
+          <button type="button" class="btn-secondary ratelimit-btn" data-minutes="10">10 minuti</button>
+          <button type="button" class="btn-secondary ratelimit-btn" data-minutes="30">30 minuti</button>
+          <button type="button" id="btn-ratelimit-off" class="btn-ghost hidden">Ripristina subito</button>
+        </div>
       </div>
 
       <div class="card">
@@ -142,46 +158,50 @@
 <div id="item-modal" class="modal hidden">
   <div class="modal-content">
     <h2 id="item-modal-title">Nuovo account</h2>
+    <p id="item-dup-notice" class="notice-warning hidden"></p>
     <form id="form-item">
       <input type="hidden" id="item-id">
       <label>Nome del sito</label>
       <input type="text" id="item-name" required placeholder="Es. Amazon">
       <label>URL <span class="muted">(https:// viene aggiunto automaticamente)</span></label>
-      <input type="text" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" id="item-url" placeholder="esempio.it">
+      <div class="input-with-btn">
+        <input type="text" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" id="item-url" placeholder="esempio.it">
+        <button type="button" id="open-item-url" class="btn-icon" title="Apri il sito">↗</button>
+        <button type="button" class="btn-icon copy-field" data-copy="item-url" data-label="URL" title="Copia">📋</button>
+      </div>
       <label>Email di accesso</label>
-      <input type="email" id="item-email" list="email-suggestions" placeholder="email@esempio.it">
+      <div class="input-with-btn">
+        <input type="email" id="item-email" list="email-suggestions" placeholder="email@esempio.it">
+        <button type="button" class="btn-icon copy-field" data-copy="item-email" data-label="Email" title="Copia">📋</button>
+      </div>
       <datalist id="email-suggestions"></datalist>
       <label>Nome utente</label>
-      <input type="text" id="item-username">
+      <div class="input-with-btn">
+        <input type="text" id="item-username">
+        <button type="button" class="btn-icon copy-field" data-copy="item-username" data-label="Nome utente" title="Copia">📋</button>
+      </div>
       <label>Password</label>
       <div class="password-field">
         <input type="password" id="item-password">
-        <button type="button" id="toggle-item-password" class="btn-icon">👁</button>
+        <button type="button" id="toggle-item-password" class="btn-icon" title="Mostra/nascondi">👁</button>
+        <button type="button" class="btn-icon copy-field" data-copy="item-password" data-label="Password" title="Copia">📋</button>
       </div>
       <label>Note</label>
       <textarea id="item-notes" rows="3"></textarea>
+      <label class="checkbox-row"><input type="checkbox" id="item-hidden"> Nascondi nella cartella «Altro»</label>
+      <p class="field-hint">Un account nascosto non compare nell'elenco principale né nella ricerca: lo trovi aprendo la cartella «Altro» in fondo alla lista.</p>
+      <p id="item-error" class="error hidden"></p>
       <div class="modal-actions">
-        <button type="button" id="btn-delete-item" class="btn-danger hidden">Elimina</button>
+        <div class="modal-actions-left">
+          <button type="button" id="btn-delete-item" class="btn-danger hidden">Elimina</button>
+          <button type="button" id="btn-duplicate-item" class="btn-secondary hidden">Duplica</button>
+        </div>
         <div class="modal-actions-right">
           <button type="button" id="btn-cancel-item" class="btn-ghost">Annulla</button>
           <button type="submit" class="btn-primary">Salva</button>
         </div>
       </div>
     </form>
-  </div>
-</div>
-
-<div id="view-modal" class="modal hidden">
-  <div class="modal-content">
-    <h2 id="view-modal-title"></h2>
-    <div id="view-modal-body" class="view-details"></div>
-    <div class="modal-actions">
-      <div></div>
-      <div class="modal-actions-right">
-        <button type="button" id="btn-close-view" class="btn-ghost">Chiudi</button>
-        <button type="button" id="btn-edit-from-view" class="btn-primary">Modifica</button>
-      </div>
-    </div>
   </div>
 </div>
 

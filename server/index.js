@@ -9,7 +9,7 @@ const cookieParser = require('cookie-parser');
 // Se JWT_SECRET non è impostato, ne genera uno casuale e lo conserva in data/
 // così resta lo stesso tra un riavvio e l'altro (le sessioni non scadono al riavvio).
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'changeme-generate-a-long-random-string') {
-  const dataDir = path.join(__dirname, '..', 'data');
+  const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
   const secretFile = path.join(dataDir, 'jwt_secret');
   fs.mkdirSync(dataDir, { recursive: true });
   if (!fs.existsSync(secretFile)) {
