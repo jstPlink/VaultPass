@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { db } = require('../db');
+const requireAuth = require('../middleware/requireAuth');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -14,7 +15,7 @@ const MAX_FIELD_LENGTH = 512;
 
 const attempts = new Map();
 const WINDOW_MS = 10 * 60 * 1000;
-const LIMITS = { login: 8, register: 8, salt: 60 };
+const LIMITS = { login: 8, register: 8, salt: 60, password: 8 };
 
 function isRateLimited(bucket, key) {
   const now = Date.now();
@@ -121,6 +122,63 @@ router.post('/login', (req, res) => {
 
 router.post('/logout', (req, res) => {
   res.clearCookie('session');
+  res.json({ ok: true });
+});
+
+function isCipherList(list) {
+  return (
+    Array.isArray(list) &&
+    list.every((r) => r && Number.isInteger(r.id) && typeof r.iv === 'string' && r.iv && typeof r.ciphertext === 'string' && r.ciphertext)
+  );
+}
+
+// Cambio della password principale. La chiave di cifratura deriva dalla password,
+// quindi il client ricifra tutti i dati con la nuova chiave e li invia insieme al
+// nuovo sale/authHash: tutto viene aggiornato in un'unica transazione, altrimenti
+// una modifica a meta' renderebbe i dati illeggibili.
+router.post('/change-password', requireAuth, (req, res) => {
+  if (isRateLimited('password', `${req.ip}:${req.userId}`)) {
+    return res.status(429).json({ error: 'Troppi tentativi, riprova piu\' tardi' });
+  }
+  const { currentAuthHash, salt, authHash, items, emails } = req.body || {};
+  if (!isShortString(currentAuthHash) || !isShortString(salt) || !isShortString(authHash) || !isCipherList(items) || !isCipherList(emails)) {
+    return res.status(400).json({ error: 'Dati mancanti o non validi' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userId);
+  if (!user || !safeEqual(currentAuthHash, user.auth_hash)) {
+    return res.status(401).json({ error: 'Password attuale non corretta' });
+  }
+
+  const tables = [
+    ['vault_items', items],
+    ['login_emails', emails],
+  ];
+  const apply = db.transaction(() => {
+    for (const [table, rows] of tables) {
+      const existing = db.prepare(`SELECT id FROM ${table} WHERE user_id = ?`).all(req.userId).map((r) => r.id);
+      const sent = new Set(rows.map((r) => r.id));
+      if (sent.size !== rows.length || rows.length !== existing.length || !existing.every((id) => sent.has(id))) {
+        const err = new Error('conflict');
+        err.conflict = true;
+        throw err;
+      }
+    }
+    const now = new Date().toISOString();
+    const updItem = db.prepare('UPDATE vault_items SET iv = ?, ciphertext = ?, updated_at = ? WHERE id = ? AND user_id = ?');
+    const updEmail = db.prepare('UPDATE login_emails SET iv = ?, ciphertext = ? WHERE id = ? AND user_id = ?');
+    for (const r of items) updItem.run(r.iv, r.ciphertext, now, r.id, req.userId);
+    for (const r of emails) updEmail.run(r.iv, r.ciphertext, r.id, req.userId);
+    db.prepare('UPDATE users SET salt = ?, auth_hash = ? WHERE id = ?').run(salt, authHash, req.userId);
+  });
+
+  try {
+    apply();
+  } catch (err) {
+    if (err.conflict) {
+      return res.status(409).json({ error: 'I dati sono cambiati da un altro dispositivo: riprova.' });
+    }
+    throw err;
+  }
   res.json({ ok: true });
 });
 

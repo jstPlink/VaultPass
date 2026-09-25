@@ -24,6 +24,7 @@ window.Api = {
   getSalt: (username) => apiRequest('GET', `/api/auth/salt?username=${encodeURIComponent(username)}`),
   login: (username, authHash) => apiRequest('POST', '/api/auth/login', { username, authHash }),
   logout: () => apiRequest('POST', '/api/auth/logout'),
+  changePassword: (payload) => apiRequest('POST', '/api/auth/change-password', payload),
 
   listItems: () => apiRequest('GET', '/api/vault/items'),
   createItem: (iv, ciphertext) => apiRequest('POST', '/api/vault/items', { iv, ciphertext }),

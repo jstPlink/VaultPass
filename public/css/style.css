@@ -66,6 +66,12 @@ button {
   margin: 10vh auto;
 }
 
+/* Spazio tra l'ultimo campo (o il messaggio d'errore) e il pulsante di invio. */
+.auth-card form > button[type="submit"] { margin-top: 1.25rem; }
+.auth-card form > .error { margin: 0.75rem 0 0; }
+
+.button-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
 .switch-link {
   text-align: center;
   margin-top: 1.25rem;

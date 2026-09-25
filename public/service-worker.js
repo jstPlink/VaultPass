@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaultpass-shell-v5';
+const CACHE_NAME = 'vaultpass-shell-v6';
 const SHELL_FILES = [
   '/',
   '/css/style.css',

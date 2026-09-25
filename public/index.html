@@ -110,7 +110,16 @@
         <h3>Sblocco rapido</h3>
         <p class="muted">Sblocca l'app con un PIN (e, se disponibile, l'impronta digitale o Face ID) invece di digitare la password principale ad ogni apertura su questo dispositivo.</p>
         <p class="muted" id="quickunlock-status"></p>
-        <button type="button" id="btn-quickunlock-toggle" class="btn-secondary"></button>
+        <div class="button-row">
+          <button type="button" id="btn-quickunlock-toggle" class="btn-secondary"></button>
+          <button type="button" id="btn-change-pin" class="btn-secondary hidden">Cambia PIN</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Password principale</h3>
+        <p class="muted">Cambia la password con cui accedi. I tuoi dati vengono ricifrati con la nuova password.</p>
+        <button type="button" id="btn-change-password" class="btn-secondary">Cambia password</button>
       </div>
 
       <div class="card">
@@ -191,6 +200,52 @@
         <div class="modal-actions-right">
           <button type="button" id="btn-quickunlock-setup-skip" class="btn-ghost">No grazie</button>
           <button type="submit" class="btn-primary">Attiva</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="change-pin-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2>Cambia PIN</h2>
+    <form id="form-change-pin">
+      <label>PIN attuale</label>
+      <input type="password" id="change-pin-current" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" required autocomplete="off">
+      <label>Nuovo PIN</label>
+      <input type="password" id="change-pin-new" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" required autocomplete="off">
+      <label>Conferma nuovo PIN</label>
+      <input type="password" id="change-pin-confirm" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="8" required autocomplete="off">
+      <p id="change-pin-error" class="error hidden"></p>
+      <div class="modal-actions">
+        <div></div>
+        <div class="modal-actions-right">
+          <button type="button" id="btn-cancel-change-pin" class="btn-ghost">Annulla</button>
+          <button type="submit" class="btn-primary">Salva</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="change-password-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2>Cambia password principale</h2>
+    <p class="muted"><strong>Non può essere recuperata se la dimentichi.</strong> Su questo dispositivo lo sblocco rapido verrà disattivato e potrai riattivarlo con un nuovo PIN.</p>
+    <form id="form-change-password">
+      <input type="text" autocomplete="username" class="hidden" tabindex="-1" aria-hidden="true" id="change-password-username">
+      <label>Password attuale</label>
+      <input type="password" id="change-password-current" required autocomplete="current-password">
+      <label>Nuova password</label>
+      <input type="password" id="change-password-new" required minlength="8" autocomplete="new-password">
+      <label>Conferma nuova password</label>
+      <input type="password" id="change-password-confirm" required minlength="8" autocomplete="new-password">
+      <p id="change-password-error" class="error hidden"></p>
+      <div class="modal-actions">
+        <div></div>
+        <div class="modal-actions-right">
+          <button type="button" id="btn-cancel-change-password" class="btn-ghost">Annulla</button>
+          <button type="submit" class="btn-primary" id="btn-submit-change-password">Cambia password</button>
         </div>
       </div>
     </form>

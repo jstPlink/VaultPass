@@ -159,6 +159,21 @@ window.QuickUnlock = (function () {
     return { authHash: payload.authHash, encKey: await importRawAesKey(payload.encKeyRaw) };
   }
 
+  // Cambia solo il PIN: l'eventuale impronta/Face ID resta com'e'. Richiede il PIN attuale.
+  async function changePin(username, currentPin, newPin) {
+    const entry = readEntry(username);
+    if (!entry) throw new Error('Sblocco rapido non configurato');
+    const { authHash, encKey } = await unlockWithPin(username, currentPin);
+    const payload = { authHash, encKeyRaw: await exportRawKeyB64(encKey) };
+    const pinSalt = generateSalt();
+    const pinKey = await deriveKeyFromPin(newPin, pinSalt);
+    const updated = readEntry(username);
+    updated.pinSalt = pinSalt;
+    updated.pinWrapped = await encryptJSON(pinKey, payload);
+    updated.failedAttempts = 0;
+    writeEntry(username, updated);
+  }
+
   function disable(username) {
     removeEntry(username);
   }
@@ -171,6 +186,7 @@ window.QuickUnlock = (function () {
     setup,
     unlockWithPin,
     unlockWithBiometric,
+    changePin,
     disable,
   };
 })();

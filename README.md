@@ -62,6 +62,8 @@ cp .env.example .env   # e imposta JWT_SECRET
 npm start
 ```
 
+Per provare l'interfaccia locale sui dati reali, imposta nel `.env` `REMOTE_URL=https://il-tuo-dominio`: le chiamate `/api` vengono inoltrate a quel server (attenzione: le modifiche fatte in locale finiscono sui dati veri). Senza `REMOTE_URL` l'app usa il database locale `data/vaultpass.db`.
+
 ## Backup
 
 Basta copiare la cartella `data/` (i dati al suo interno sono già cifrati; ferma il container prima della copia, oppure copia insieme anche i file `vaultpass.db-wal` e `vaultpass.db-shm`). Consigliato un backup periodico automatico di questa cartella.

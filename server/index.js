@@ -26,6 +26,7 @@ const requireAuth = require('./middleware/requireAuth');
 const authRoutes = require('./routes/auth');
 const vaultRoutes = require('./routes/vault');
 const emailsRoutes = require('./routes/emails');
+const { getRemoteBase, remoteProxy } = require('./remoteProxy');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,18 +45,32 @@ app.use(
     },
   })
 );
-app.use(express.json({ limit: '256kb' }));
-app.use(cookieParser());
+const REMOTE_BASE = getRemoteBase();
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Versione dell'app (e commit da cui e' stata costruita l'immagine Docker).
 app.get('/api/version', (req, res) => {
-  res.json({ version: APP_VERSION, commit: APP_COMMIT || null });
+  res.json({
+    version: APP_VERSION,
+    commit: APP_COMMIT || null,
+    remote: REMOTE_BASE ? new URL(REMOTE_BASE).host : null,
+  });
 });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/vault', requireAuth, vaultRoutes);
-app.use('/api/emails', requireAuth, emailsRoutes);
+if (REMOTE_BASE) {
+  // Prima dei parser del body: la richiesta va inoltrata cosi' com'e'.
+  app.use('/api', remoteProxy(REMOTE_BASE));
+  console.log(`ATTENZIONE: le chiamate /api vengono inoltrate a ${REMOTE_BASE} (dati reali)`);
+} else {
+  // Il cambio password reinvia tutto il vault ricifrato: serve un limite piu' alto.
+  app.use('/api/auth/change-password', express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '256kb' }));
+  app.use(cookieParser());
+  app.use('/api/auth', authRoutes);
+  app.use('/api/vault', requireAuth, vaultRoutes);
+  app.use('/api/emails', requireAuth, emailsRoutes);
+}
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));

@@ -146,10 +146,19 @@
       hide($('view-quickunlock'));
       await enterMain();
     } catch (err) {
-      errEl.textContent = err.message;
+      errEl.textContent = staleQuickUnlock(username, err) || err.message;
       show(errEl);
     }
   });
+
+  // Se la password e' stata cambiata da un altro dispositivo, i dati salvati dallo
+  // sblocco rapido non valgono piu': il server risponde 401 e vanno eliminati.
+  function staleQuickUnlock(username, err) {
+    if (err.status !== 401) return null;
+    QuickUnlock.disable(username);
+    $('btn-quickunlock-biometric').classList.add('hidden');
+    return 'La password principale e\' cambiata: usa la password principale.';
+  }
 
   $('btn-quickunlock-biometric').addEventListener('click', async () => {
     const username = QuickUnlock.getLastUsername();
@@ -164,7 +173,7 @@
       hide($('view-quickunlock'));
       await enterMain();
     } catch (err) {
-      errEl.textContent = 'Impronta/Face ID non riuscita. Usa il PIN.';
+      errEl.textContent = staleQuickUnlock(username, err) || 'Impronta/Face ID non riuscita. Usa il PIN.';
       show(errEl);
     }
   });
@@ -212,7 +221,128 @@
       statusEl.textContent = 'Non attivo';
       btn.textContent = 'Attiva';
     }
+    $('btn-change-pin').classList.toggle('hidden', !configured);
   }
+
+  // ---------- Opzioni: cambio PIN ----------
+  $('btn-change-pin').addEventListener('click', () => {
+    hide($('change-pin-error'));
+    show($('change-pin-modal'));
+  });
+
+  function closeChangePin() {
+    hide($('change-pin-modal'));
+    $('form-change-pin').reset();
+  }
+  $('btn-cancel-change-pin').addEventListener('click', closeChangePin);
+
+  $('form-change-pin').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = $('change-pin-error');
+    hide(errEl);
+    const current = $('change-pin-current').value;
+    const next = $('change-pin-new').value;
+    if (next !== $('change-pin-confirm').value) {
+      errEl.textContent = 'I PIN non coincidono.';
+      show(errEl);
+      return;
+    }
+    try {
+      await QuickUnlock.changePin(currentUsername, current, next);
+      closeChangePin();
+      toast('PIN modificato');
+    } catch (err) {
+      errEl.textContent = err.message;
+      show(errEl);
+      // Dopo troppi tentativi lo sblocco rapido viene rimosso.
+      renderQuickUnlockStatus();
+    }
+  });
+
+  // ---------- Opzioni: cambio password principale ----------
+  $('btn-change-password').addEventListener('click', () => {
+    hide($('change-password-error'));
+    $('change-password-username').value = currentUsername || '';
+    show($('change-password-modal'));
+  });
+
+  function closeChangePassword() {
+    hide($('change-password-modal'));
+    $('form-change-password').reset();
+  }
+  $('btn-cancel-change-password').addEventListener('click', closeChangePassword);
+
+  // Decifra con la vecchia chiave e ricifra con la nuova. Se anche una sola riga non
+  // si decifra si annulla tutto: sovrascriverla la renderebbe irrecuperabile.
+  async function reencryptRows(rows, newKey) {
+    const out = [];
+    for (const row of rows) {
+      let data;
+      try {
+        data = await decryptJSON(encKey, row.iv, row.ciphertext);
+      } catch (e) {
+        throw new Error('Alcuni dati non sono leggibili: cambio password annullato per non perderli.');
+      }
+      const { iv, ciphertext } = await encryptJSON(newKey, data);
+      out.push({ id: row.id, iv, ciphertext });
+    }
+    return out;
+  }
+
+  $('form-change-password').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = $('change-password-error');
+    const submitBtn = $('btn-submit-change-password');
+    hide(errEl);
+    const current = $('change-password-current').value;
+    const next = $('change-password-new').value;
+    if (next !== $('change-password-confirm').value) {
+      errEl.textContent = 'Le password non coincidono.';
+      show(errEl);
+      return;
+    }
+    if (next === current) {
+      errEl.textContent = 'La nuova password deve essere diversa da quella attuale.';
+      show(errEl);
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Attendi...';
+    try {
+      const { salt: oldSalt } = await Api.getSalt(currentUsername);
+      const oldKeys = await deriveKeys(current, oldSalt);
+      if (oldKeys.authHashB64 !== currentAuthHash) throw new Error('Password attuale non corretta');
+
+      const newSalt = generateSalt();
+      const newKeys = await deriveKeys(next, newSalt);
+      const [itemRows, emailRows] = await Promise.all([Api.listItems(), Api.listEmails()]);
+      const items = await reencryptRows(itemRows, newKeys.encKey);
+      const emails = await reencryptRows(emailRows, newKeys.encKey);
+
+      await Api.changePassword({
+        currentAuthHash,
+        salt: newSalt,
+        authHash: newKeys.authHashB64,
+        items,
+        emails,
+      });
+
+      encKey = newKeys.encKey;
+      currentAuthHash = newKeys.authHashB64;
+      const hadQuickUnlock = QuickUnlock.isConfigured(currentUsername);
+      QuickUnlock.disable(currentUsername);
+      closeChangePassword();
+      renderQuickUnlockStatus();
+      toast('Password modificata');
+      if (hadQuickUnlock) show($('quickunlock-setup-modal'));
+    } catch (err) {
+      errEl.textContent = err.message;
+      show(errEl);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Cambia password';
+    }
+  });
 
   $('btn-quickunlock-toggle').addEventListener('click', async () => {
     if (QuickUnlock.isConfigured(currentUsername)) {
@@ -640,8 +770,9 @@
   // ---------- Versione dell'app ----------
   fetch('/api/version')
     .then((res) => res.json())
-    .then(({ version, commit }) => {
-      const text = `VaultPass v${version} · ${commit ? 'build ' + commit : 'esecuzione locale'}`;
+    .then(({ version, commit, remote }) => {
+      let text = `VaultPass v${version} · ${commit ? 'build ' + commit : 'esecuzione locale'}`;
+      if (remote) text += ` · dati reali da ${remote}`;
       document.querySelectorAll('.app-version').forEach((el) => { el.textContent = text; });
     })
     .catch(() => {});
