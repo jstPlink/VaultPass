@@ -19,6 +19,9 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'changeme-generate-a-l
   process.env.JWT_SECRET = fs.readFileSync(secretFile, 'utf8').trim();
 }
 
+const { version: APP_VERSION } = require('../package.json');
+const APP_COMMIT = (process.env.APP_COMMIT || '').slice(0, 7);
+
 const requireAuth = require('./middleware/requireAuth');
 const authRoutes = require('./routes/auth');
 const vaultRoutes = require('./routes/vault');
@@ -44,6 +47,11 @@ app.use(
 app.use(express.json({ limit: '256kb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// Versione dell'app (e commit da cui e' stata costruita l'immagine Docker).
+app.get('/api/version', (req, res) => {
+  res.json({ version: APP_VERSION, commit: APP_COMMIT || null });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/vault', requireAuth, vaultRoutes);

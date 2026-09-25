@@ -637,6 +637,15 @@
     toast('Eliminata');
   });
 
+  // ---------- Versione dell'app ----------
+  fetch('/api/version')
+    .then((res) => res.json())
+    .then(({ version, commit }) => {
+      const text = `VaultPass v${version} · ${commit ? 'build ' + commit : 'esecuzione locale'}`;
+      document.querySelectorAll('.app-version').forEach((el) => { el.textContent = text; });
+    })
+    .catch(() => {});
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js'));
   }

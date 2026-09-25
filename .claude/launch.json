@@ -4,7 +4,7 @@
     {
       "name": "vaultpass",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["server/index.js"],
+      "runtimeArgs": ["--watch", "server/index.js"],
       "port": 3000
     }
   ]

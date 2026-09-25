@@ -9,8 +9,11 @@ RUN npm ci --omit=dev
 # --- Immagine finale
 FROM node:20-alpine
 WORKDIR /app
+# Commit da cui è costruita l'immagine (passato da GitHub Actions), mostrato nell'app.
+ARG APP_COMMIT=
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    APP_COMMIT=$APP_COMMIT
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./

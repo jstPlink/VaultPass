@@ -351,3 +351,10 @@ main {
   color: var(--text);
   cursor: pointer;
 }
+
+.app-version {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
