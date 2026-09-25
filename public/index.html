@@ -100,6 +100,12 @@
       </div>
 
       <div class="card">
+        <h3>Icone dei siti</h3>
+        <p class="muted">Mostra l'icona del sito accanto agli account. Le icone vengono richieste a DuckDuckGo, che vede i domini dei siti salvati (non gli URL completi, né utenti o password). L'impostazione vale solo su questo dispositivo.</p>
+        <label class="checkbox-row"><input type="checkbox" id="opt-show-icons"> Mostra le icone dei siti</label>
+      </div>
+
+      <div class="card">
         <h3>Sblocco rapido</h3>
         <p class="muted">Sblocca l'app con un PIN (e, se disponibile, l'impronta digitale o Face ID) invece di digitare la password principale ad ogni apertura su questo dispositivo.</p>
         <p class="muted" id="quickunlock-status"></p>
@@ -128,8 +134,8 @@
       <input type="hidden" id="item-id">
       <label>Nome del sito</label>
       <input type="text" id="item-name" required placeholder="Es. Amazon">
-      <label>URL</label>
-      <input type="url" id="item-url" placeholder="https://www.esempio.it">
+      <label>URL <span class="muted">(https:// viene aggiunto automaticamente)</span></label>
+      <input type="text" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" id="item-url" placeholder="esempio.it">
       <label>Email di accesso</label>
       <input type="email" id="item-email" list="email-suggestions" placeholder="email@esempio.it">
       <datalist id="email-suggestions"></datalist>

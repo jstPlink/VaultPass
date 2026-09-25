@@ -302,13 +302,15 @@
       </div>
       ${linkBtn}
     `;
+    if (iconsEnabled()) div.prepend(siteIcon(item));
     div.addEventListener('click', () => openViewModal(item));
     const btn = div.querySelector('.item-card-link');
     if (btn) {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         // Solo http/https: evita schemi come javascript: salvati in un URL.
-        if (/^https?:\/\//i.test(btn.dataset.url)) window.open(btn.dataset.url, '_blank', 'noopener');
+        const target = normalizeUrl(btn.dataset.url);
+        if (target) window.open(target.href, '_blank', 'noopener');
       });
     }
     return div;
@@ -323,6 +325,55 @@
       hide($('vault-empty'));
       items.forEach((item) => list.appendChild(itemCard(item)));
     }
+  }
+
+  // ---------- Icone dei siti ----------
+  const ICONS_KEY = 'vaultpass_show_icons';
+  function iconsEnabled() {
+    try { return localStorage.getItem(ICONS_KEY) !== 'false'; } catch (e) { return true; }
+  }
+
+  // Gli URL sono sempre https://: si puo' scrivere solo il dominio (es. "spotify.it")
+  // e un eventuale schema digitato (http://, ftp://...) viene sostituito da https://.
+  // Restituisce un oggetto URL, oppure null se il valore non e' un indirizzo valido.
+  function normalizeUrl(raw) {
+    const value = String(raw || '').trim().replace(/^([a-z][a-z0-9+.-]*:)?\/\//i, '');
+    if (!value) return null;
+    try {
+      return new URL('https://' + value);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Forma salvata nel vault: https://dominio/percorso, senza "/" finale inutile.
+  // Se il valore non e' valido resta com'e', cosi' non si perde quanto digitato.
+  function storedUrl(raw) {
+    const trimmed = String(raw || '').trim();
+    const url = normalizeUrl(trimmed);
+    if (!url) return trimmed;
+    return url.pathname === '/' && !url.search && !url.hash ? url.origin : url.href;
+  }
+
+  // Icona del sito; finche' non e' caricata (o se manca) mostra l'iniziale del nome.
+  function siteIcon(item) {
+    const wrap = document.createElement('span');
+    wrap.className = 'site-icon';
+    wrap.textContent = (item.name || '?').trim().charAt(0).toUpperCase() || '?';
+    const url = normalizeUrl(item.url);
+    if (url && url.hostname.includes('.')) {
+      const img = new Image();
+      img.alt = '';
+      img.referrerPolicy = 'no-referrer';
+      img.addEventListener('load', () => {
+        if (img.naturalWidth <= 1) return;
+        wrap.textContent = '';
+        wrap.classList.add('has-img');
+        wrap.appendChild(img);
+      });
+      img.src = 'https://icons.duckduckgo.com/ip3/' + encodeURIComponent(url.hostname) + '.ico';
+    }
+    return wrap;
   }
 
   function escapeHtml(str) {
@@ -401,7 +452,7 @@
     const id = $('item-id').value;
     const data = {
       name: $('item-name').value.trim(),
-      url: $('item-url').value.trim(),
+      url: storedUrl($('item-url').value),
       email: $('item-email').value.trim(),
       username: $('item-username').value.trim(),
       password: $('item-password').value,
@@ -451,7 +502,10 @@
 
   function openViewModal(item) {
     currentViewedItem = item;
-    $('view-modal-title').textContent = item.name || '(senza nome)';
+    const modalTitle = $('view-modal-title');
+    modalTitle.textContent = '';
+    if (iconsEnabled()) modalTitle.appendChild(siteIcon(item));
+    modalTitle.appendChild(document.createTextNode(item.name || '(senza nome)'));
     const body = $('view-modal-body');
     body.innerHTML =
       detailRow('URL', item.url, true) +
@@ -484,6 +538,14 @@
     openItemModal(currentViewedItem);
   });
 
+  // ---------- Options: icone dei siti ----------
+  $('opt-show-icons').checked = iconsEnabled();
+  $('opt-show-icons').addEventListener('change', (e) => {
+    try { localStorage.setItem(ICONS_KEY, e.target.checked ? 'true' : 'false'); } catch (err) {}
+    renderVaultList(vaultItems);
+    $('search-input').dispatchEvent(new Event('input'));
+  });
+
   // ---------- Options: emails ----------
   async function ensureEmailSaved(email, label, color) {
     if (emailEntries.some((e) => e.email.toLowerCase() === email.toLowerCase())) return;
@@ -501,13 +563,22 @@
     emailEntries.forEach((e) => {
       const chip = document.createElement('div');
       chip.className = 'chip';
-      chip.title = e.email;
+      chip.style.setProperty('--chip-color', e.color || '#6b7280');
       const dot = document.createElement('span');
       dot.className = 'chip-dot';
-      dot.style.background = e.color;
+      const text = document.createElement('div');
+      text.className = 'chip-text';
       const labelSpan = document.createElement('span');
+      labelSpan.className = 'chip-label';
       labelSpan.textContent = e.label;
-      chip.append(dot, labelSpan);
+      const emailSpan = document.createElement('span');
+      emailSpan.className = 'chip-email';
+      emailSpan.textContent = e.email;
+      text.append(labelSpan, emailSpan);
+      const arrow = document.createElement('span');
+      arrow.className = 'chip-arrow';
+      arrow.textContent = '›';
+      chip.append(dot, text, arrow);
       chip.addEventListener('click', () => openEmailModal(e));
       container.appendChild(chip);
     });

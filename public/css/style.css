@@ -163,28 +163,42 @@ main {
 
 .chip-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.5rem;
   margin: 0.75rem 0;
 }
 .chip {
-  background: #eef0f6;
-  border-radius: 999px;
-  padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+  --chip-color: #6b7280;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.9rem;
-}
-.chip {
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  background: #f7f8fb;
+  background: color-mix(in srgb, var(--chip-color) 8%, #ffffff);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--chip-color);
+  border-radius: 10px;
   cursor: pointer;
 }
+.chip:hover { border-color: var(--chip-color); }
 .chip-dot {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
+  background: var(--chip-color);
   flex-shrink: 0;
 }
+.chip-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.chip-label { font-weight: 600; overflow-wrap: anywhere; }
+.chip-email { font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
+.chip-arrow { color: var(--muted); flex-shrink: 0; }
 
 .inline-form {
   display: flex;
@@ -300,4 +314,40 @@ main {
 
 @media (min-width: 700px) {
   main { padding-top: 2rem; }
+}
+
+.site-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #eef0f6;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.site-icon.has-img {
+  background: #fff;
+  border: 1px solid var(--border);
+}
+.site-icon img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+#view-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  color: var(--text);
+  cursor: pointer;
 }
